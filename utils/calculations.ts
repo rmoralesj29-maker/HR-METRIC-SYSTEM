@@ -1,131 +1,73 @@
 
-import { Employee, CalculatedEmployeeStats, VRRate, SystemSettings, DEFAULT_SETTINGS } from '../types';
+import { Employee, SystemSettings, CalculatedEmployeeStats, VRRate } from '../types';
 
-export const calculateAge = (dob: string): number => {
-  const birthDate = new Date(dob);
-  const today = new Date();
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const m = today.getMonth() - birthDate.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-    age--;
-  }
-  return age;
-};
+export const processEmployee = (employee: Employee, settings: SystemSettings): CalculatedEmployeeStats => {
+    const today = new Date();
+    const startDate = new Date(employee.startDate);
+    const dob = new Date(employee.dob);
 
-export const calculateDaysWorked = (startDate: string): number => {
-  const start = new Date(startDate);
-  const today = new Date();
-  const diffTime = Math.abs(today.getTime() - start.getTime());
-  return Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-};
+    // Calculate Age
+    let age = today.getFullYear() - dob.getFullYear();
+    const m = today.getMonth() - dob.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
+        age--;
+    }
 
-export const calculateCurrentMonths = (startDate: string): number => {
-  const start = new Date(startDate);
-  const today = new Date();
-  // PDF Formula approximation: (TODAY - StartDate) / 30, rounded to 1 decimal
-  const diffTime = today.getTime() - start.getTime();
-  const days = diffTime / (1000 * 60 * 60 * 24);
-  return Math.round((days / 30) * 10) / 10;
-};
+    // Calculate Tenure
+    const diffTime = Math.abs(today.getTime() - startDate.getTime());
+    const totalDaysWorked = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-export const calculateVRRate = (age: number, totalMonths: number, settings: SystemSettings): VRRate => {
-  const { adultAgeThreshold, vrThresholds } = settings;
+    // Months worked (approx)
+    const currentMonthsWorked = Math.floor(totalDaysWorked / 30.437); // Average days in month
 
-  // Age check
-  if (age < adultAgeThreshold) {
-    if (totalMonths < vrThresholds.vr1) return VRRate.VR0;
-    if (totalMonths < vrThresholds.vr2) return VRRate.VR1;
-    if (totalMonths < vrThresholds.vr3) return VRRate.VR2;
-    if (totalMonths < vrThresholds.vr4) return VRRate.VR3;
-    return VRRate.VR4;
-  } else {
-    // Adult Age Logic (Floor at VR1)
-    if (totalMonths < vrThresholds.vr1) return VRRate.VR1; 
-    if (totalMonths < vrThresholds.vr2) return VRRate.VR1;
-    if (totalMonths < vrThresholds.vr3) return VRRate.VR2;
-    if (totalMonths < vrThresholds.vr4) return VRRate.VR3;
-    return VRRate.VR4;
-  }
-};
+    const totalMonthsExperience = currentMonthsWorked + (employee.previousExperienceMonths || 0);
 
-export const checkRaiseWindow = (age: number, totalMonths: number, settings: SystemSettings): boolean => {
-  const { adultAgeThreshold, raiseMilestones } = settings;
-  // Window is roughly +/- 0.5 months (15 days) around the milestone trigger
-  // The PDF logic specifically checked for ranges like 6.5-7.0 (which is 0.5 month before effective date)
-  // We'll generalize: if current month is within 0.5 of a milestone (before it passes)
-  
-  // Note: PDF logic was specific:
-  // 6.5-7.0 (for <22), 12.5-13.0, 36.5-37.0, 60.5-61.0
-  // Effective raises at 7, 13, 37, 61.
-  
-  // Dynamic Check:
-  // Iterate through effective raise months (Milestone + 1).
-  // Alert if Total Months is between (Effective - 0.5) and Effective.
-  
-  // We need to map the "Experience Milestones" (6, 12, 36, 60) to "Effective Raise Months" (7, 13, 37, 61).
-  // Logic: Raise applies the month AFTER the milestone.
-  
-  const relevantMilestones = age >= adultAgeThreshold 
-    ? raiseMilestones.filter(m => m >= 12) // Skip first milestone for adults if logic dictates, though PDF just skipped 6-month for adults.
-    : raiseMilestones;
+    // VR Rate Calculation
+    let vrRate = VRRate.VR0;
+    const { vrThresholds } = settings;
 
-  // Note: PDF says for age >= 22 skip 6-month window.
-  // We assume raiseMilestones[0] is the 6 month one.
-  const milestonesToCheck = (age >= adultAgeThreshold && raiseMilestones.includes(6))
-    ? raiseMilestones.filter(m => m !== 6)
-    : raiseMilestones;
+    if (totalMonthsExperience >= vrThresholds.vr4) vrRate = VRRate.VR4;
+    else if (totalMonthsExperience >= vrThresholds.vr3) vrRate = VRRate.VR3;
+    else if (totalMonthsExperience >= vrThresholds.vr2) vrRate = VRRate.VR2;
+    else if (totalMonthsExperience >= vrThresholds.vr1) vrRate = VRRate.VR1;
+    else vrRate = VRRate.VR0;
 
-  for (const milestone of milestonesToCheck) {
-      const effectiveMonth = milestone + 1;
-      const windowStart = effectiveMonth - 0.5;
-      const windowEnd = effectiveMonth;
-      
-      if (totalMonths >= windowStart && totalMonths <= windowEnd) {
-          return true;
-      }
-  }
-  return false;
-};
+    // Raise Window Calculation
+    // Find next milestone
+    const nextMilestone = settings.raiseMilestones.find(m => m > totalMonthsExperience) || null;
 
-export const calculateNextRateMonths = (age: number, totalMonths: number, settings: SystemSettings): { months: number | null, milestone: number | null } => {
-  const { adultAgeThreshold, raiseMilestones } = settings;
-  
-  let milestones = [...raiseMilestones];
-  
-  if (age >= adultAgeThreshold) {
-      // PDF Logic: Adults usually skip the very first <1yr bump if it was just for probationary period, but sticking to PDF logic:
-      // "For age >= 22 -> skip 6-month window".
-      milestones = milestones.filter(m => m !== 6);
-  }
+    let monthsUntilNextRate = null;
+    let inRaiseWindow = false;
 
-  for (const m of milestones) {
-      if (totalMonths < m) {
-          const diff = Math.round((m - totalMonths) * 10) / 10;
-          return { months: diff, milestone: m };
-      }
-  }
+    if (nextMilestone) {
+         monthsUntilNextRate = nextMilestone - totalMonthsExperience;
 
-  return { months: null, milestone: null };
-};
+         // We need (NextMilestone - PreviousExperience) months from StartDate.
+         const monthsNeededFromStart = nextMilestone - (employee.previousExperienceMonths || 0);
+         const targetDate = new Date(startDate);
+         targetDate.setMonth(startDate.getMonth() + monthsNeededFromStart);
 
-export const processEmployee = (emp: Employee, settings: SystemSettings = DEFAULT_SETTINGS): CalculatedEmployeeStats => {
-  const age = calculateAge(emp.dob);
-  const currentMonths = calculateCurrentMonths(emp.startDate);
-  const totalMonths = Math.round((emp.previousExperienceMonths + currentMonths) * 10) / 10;
-  
-  const vrRate = calculateVRRate(age, totalMonths, settings);
-  const inRaiseWindow = checkRaiseWindow(age, totalMonths, settings);
-  const nextRate = calculateNextRateMonths(age, totalMonths, settings);
+         const diffDaysToTarget = (targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
 
-  return {
-    ...emp,
-    age,
-    currentMonthsWorked: currentMonths,
-    totalDaysWorked: calculateDaysWorked(emp.startDate),
-    totalMonthsExperience: totalMonths,
-    vrRate,
-    inRaiseWindow,
-    monthsUntilNextRate: nextRate.months,
-    nextMilestone: nextRate.milestone
-  };
+         // Logic: if we are within raiseWindowDays of the target date (either side, or approaching)
+         // Usually alerts are "Due soon" or "Overdue".
+         // Let's say we show alert if we are within window before due date, or if it's passed but not too long ago?
+         // User's code said "Raise Due", implying action required.
+
+         if (Math.abs(diffDaysToTarget) <= settings.raiseWindowDays) {
+             inRaiseWindow = true;
+         }
+    }
+
+    return {
+        ...employee,
+        age,
+        totalDaysWorked,
+        currentMonthsWorked,
+        totalMonthsExperience,
+        vrRate,
+        inRaiseWindow,
+        monthsUntilNextRate,
+        nextMilestone
+    };
 };
