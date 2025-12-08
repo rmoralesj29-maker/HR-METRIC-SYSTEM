@@ -24,7 +24,13 @@ export const CloudMemoryTest: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    runLiveTest();
+    if (supabaseEnvDiagnostics.hasAllEnv) {
+      runLiveTest();
+    } else {
+      setStatus('error');
+      setMessage('Supabase environment variables are missing.');
+      setErrorDetail('Add SUPABASE_URL and SUPABASE_ANON_KEY to run the cloud memory test.');
+    }
   }, []);
 
   const runLiveTest = async () => {
@@ -34,7 +40,8 @@ export const CloudMemoryTest: React.FC = () => {
 
     const supabase = getSupabaseClient();
     if (!supabase) {
-      const warning = 'Supabase client not initialized. Check environment variables on Vercel.';
+      const warning =
+        'Supabase client not initialized. Verify SUPABASE_URL and SUPABASE_ANON_KEY in your environment.';
       setStatus('error');
       setMessage('Cannot reach Supabase because the client is undefined.');
       setErrorDetail(warning);
