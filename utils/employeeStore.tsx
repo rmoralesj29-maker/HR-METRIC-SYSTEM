@@ -79,7 +79,8 @@ export const EmployeeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   useEffect(() => {
     if (!isLoading) {
-      saveEmployeesToStorage(employees);
+      const sanitized = employees.map(stripDerivedFields);
+      saveEmployeesToStorage(sanitized);
     }
   }, [employees, isLoading]);
 
