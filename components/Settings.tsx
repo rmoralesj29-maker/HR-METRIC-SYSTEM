@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { SystemSettings, ColumnDefinition, Employee } from '../types';
-import { Plus, Trash2, Download, Table, Settings as SettingsIcon, Layout, Thermometer } from 'lucide-react';
+import { Plus, Trash2, Download, Table, Settings as SettingsIcon, Layout, Thermometer, Database } from 'lucide-react';
+import { CloudMemoryTest } from './CloudMemoryTest';
 
 interface SettingsProps {
   settings: SystemSettings;
@@ -17,7 +18,7 @@ export const Settings: React.FC<SettingsProps> = ({
   onUpdateColumns,
   employees,
 }) => {
-  const [activeTab, setActiveTab] = useState<'rules' | 'columns' | 'export' | 'sickdays'>('rules');
+  const [activeTab, setActiveTab] = useState<'rules' | 'columns' | 'export' | 'sickdays' | 'cloud'>('rules');
   const [newColLabel, setNewColLabel] = useState('');
   const [newColType, setNewColType] = useState<'text' | 'number' | 'date'>('text');
 
@@ -133,6 +134,12 @@ export const Settings: React.FC<SettingsProps> = ({
           >
             <Download size={18} /> Export
           </button>
+          <button
+            onClick={() => setActiveTab('cloud')}
+            className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${activeTab === 'cloud' ? 'bg-indigo-100 text-indigo-700' : 'text-slate-600 hover:bg-slate-100'}`}
+          >
+            <Database size={18} /> Cloud Memory
+          </button>
         </nav>
       </div>
 
@@ -211,6 +218,19 @@ export const Settings: React.FC<SettingsProps> = ({
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {activeTab === 'cloud' && (
+          <div className="space-y-6 max-w-4xl">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-800 mb-2">Supabase Connectivity</h2>
+              <p className="text-slate-500">
+                Validate that environment variables are wired, the Supabase client is live, and that writes/reads persist in the
+                <code> app_memory_test</code> table for cross-device syncing.
+              </p>
+            </div>
+            <CloudMemoryTest />
           </div>
         )}
 
