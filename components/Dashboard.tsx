@@ -84,6 +84,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings, 
   const totalSickDaysYTD = settings.monthlySickDays.reduce((acc, curr) => acc + (Number(curr.value) || 0), 0);
   const averageTenureYears = (stats.averageTotalExperienceMonths / 12).toFixed(1);
 
+  const languageData = useMemo(() => {
+    return Object.entries(stats.languageDistribution)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+  }, [stats.languageDistribution]);
+
   return (
     <div className="space-y-6">
       {/* Top Stat Cards */}
@@ -227,6 +233,36 @@ export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings, 
           </div>
         </div>
       </div>
+
+      {/* Language Stats */}
+      {settings.showLanguageStats && (
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+          <h3 className="text-lg font-bold text-slate-800 mb-4">Spoken Languages</h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={languageData} layout="vertical" margin={{ left: 40 }}>
+                <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} />
+                <XAxis type="number" hide />
+                <YAxis dataKey="name" type="category" width={100} tick={{ fill: '#64748b', fontSize: 12 }} />
+                <Tooltip
+                  cursor={{ fill: '#f1f5f9' }}
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                />
+                <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                  {languageData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                  <LabelList dataKey="value" position="right" fill="#64748b" />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+            {stats.totalEmployees === 0 && <p className="text-center text-slate-400 text-sm mt-2">No data yet</p>}
+            {languageData.length === 0 && stats.totalEmployees > 0 && (
+              <p className="text-center text-slate-400 text-sm mt-2">No language data available</p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

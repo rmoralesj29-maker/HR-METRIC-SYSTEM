@@ -10,6 +10,7 @@ export interface DashboardStats {
   ageBuckets: Record<string, number>;
   performanceDistribution: Record<number, number>;
   raiseDue: number;
+  languageDistribution: Record<string, number>;
 }
 
 export const getDashboardStats = (employees: Employee[], settings: SystemSettings): DashboardStats => {
@@ -23,6 +24,7 @@ export const getDashboardStats = (employees: Employee[], settings: SystemSetting
       ageBuckets: { '<22': 0, '22-29': 0, '30-39': 0, '40-49': 0, '50+': 0 },
       performanceDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
       raiseDue: 0,
+      languageDistribution: {},
     };
   }
 
@@ -68,6 +70,18 @@ export const getDashboardStats = (employees: Employee[], settings: SystemSetting
 
   const raiseDue = enriched.filter((emp) => emp.inRaiseWindow).length;
 
+  const languageDistribution = enriched.reduce((acc, emp) => {
+    if (emp.languages && Array.isArray(emp.languages)) {
+      emp.languages.forEach((lang) => {
+        const trimmedLang = lang.trim();
+        if (trimmedLang) {
+          acc[trimmedLang] = (acc[trimmedLang] || 0) + 1;
+        }
+      });
+    }
+    return acc;
+  }, {} as Record<string, number>);
+
   return {
     totalEmployees,
     averageAge,
@@ -77,5 +91,6 @@ export const getDashboardStats = (employees: Employee[], settings: SystemSetting
     ageBuckets,
     performanceDistribution,
     raiseDue,
+    languageDistribution,
   };
 };
