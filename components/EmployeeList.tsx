@@ -1,10 +1,10 @@
-
 import React, { useState } from 'react';
-import { CalculatedEmployeeStats, Employee, Gender, VRRate, ColumnDefinition } from '../types';
+import { Employee, ColumnDefinition } from '../types';
 import { Edit, AlertCircle, Plus, X, Save, Trash2, Search, Info, Calendar } from 'lucide-react';
+import { formatEmployeeName } from '../utils/experience';
 
 interface EmployeeListProps {
-  employees: CalculatedEmployeeStats[];
+  employees: Employee[];
   columns: ColumnDefinition[];
   onUpdate: (employee: Employee) => void;
   onAdd: (employee: Employee) => void;
@@ -15,13 +15,13 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({ employees, columns, 
   const [filter, setFilter] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null); // For delete confirmation
-  const [raiseInfoEmp, setRaiseInfoEmp] = useState<CalculatedEmployeeStats | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [raiseInfoEmp, setRaiseInfoEmp] = useState<Employee | null>(null);
 
-  const filteredEmployees = employees.filter(e => 
-    e.name.toLowerCase().includes(filter.toLowerCase()) ||
-    e.role.toLowerCase().includes(filter.toLowerCase())
-  );
+  const filteredEmployees = employees.filter((e) => {
+    const fullName = formatEmployeeName(e).toLowerCase();
+    return fullName.includes(filter.toLowerCase()) || e.role.toLowerCase().includes(filter.toLowerCase());
+  });
 
   const handleEditClick = (id: string) => {
     setEditingId(id);
@@ -37,21 +37,26 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({ employees, columns, 
   };
 
   const getCustomValue = (emp: Employee, colId: string) => {
-      return emp.customData?.[colId] || '-';
+    return emp.customFields?.[colId] ?? '-';
   };
 
-  // Template for new employee
   const EMPTY_EMPLOYEE: Employee = {
-      id: '', // Will be generated on save
-      name: '',
-      dob: '',
-      startDate: new Date().toISOString().split('T')[0],
-      previousExperienceMonths: 0,
-      gender: 'Male',
-      country: '',
-      languages: [],
-      role: '',
-      customData: {}
+    id: '',
+    firstName: '',
+    lastName: '',
+    gender: 'Other',
+    country: '',
+    role: '',
+    statusVR: 'VR0',
+    dateOfBirth: '',
+    startDate: new Date().toISOString().split('T')[0],
+    previousExperienceMonths: 0,
+    totalExperienceMonths: 0,
+    monthsToNextRaise: null,
+    sickDaysYTD: 0,
+    performanceRating: 3,
+    languages: [],
+    customFields: {},
   };
 
   return (
@@ -63,17 +68,17 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({ employees, columns, 
             <p className="text-slate-500 text-sm">Track detailed stats, raise schedules, and personal info.</p>
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
-             <div className="relative flex-1 sm:w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                <input 
-                type="text" 
-                placeholder="Search by name or role..." 
+            <div className="relative flex-1 sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+              <input
+                type="text"
+                placeholder="Search by name or role..."
                 className="w-full pl-10 pr-4 py-2 bg-white text-slate-900 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm transition-all placeholder-slate-400"
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
-                />
+              />
             </div>
-            <button 
+            <button
               onClick={handleAddNewClick}
               className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-200"
             >
@@ -81,7 +86,7 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({ employees, columns, 
             </button>
           </div>
         </div>
-        
+
         <div className="overflow-x-auto flex-1">
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead className="bg-slate-50 text-slate-600 font-medium">
@@ -90,9 +95,13 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({ employees, columns, 
                 <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4">Dates</th>
                 <th className="px-6 py-4">Experience</th>
-                {columns.filter(c => !c.isSystem).map(col => (
-                    <th key={col.id} className="px-6 py-4 text-indigo-600">{col.label}</th>
-                ))}
+                {columns
+                  .filter((c) => !c.isSystem)
+                  .map((col) => (
+                    <th key={col.id} className="px-6 py-4 text-indigo-600">
+                      {col.label}
+                    </th>
+                  ))}
                 <th className="px-6 py-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -102,79 +111,108 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({ employees, columns, 
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-xs shrink-0">
-                        {employee.name ? employee.name.split(' ').map(n => n[0]).join('').slice(0,2) : '??'}
+                        {formatEmployeeName(employee)
+                          .split(' ')
+                          .map((n) => n[0])
+                          .join('')
+                          .slice(0, 2) || '??'}
                       </div>
                       <div>
-                        <div className="font-semibold text-slate-800">{employee.name}</div>
+                        <div className="font-semibold text-slate-800">{formatEmployeeName(employee)}</div>
                         <div className="text-xs text-slate-500">{employee.role} • {employee.country}</div>
                         <div className="text-[10px] text-slate-400 truncate max-w-[150px]">{employee.languages.join(', ')}</div>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                     <div className="flex flex-col gap-1">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium border w-fit ${
-                            employee.gender === 'Male' ? 'bg-blue-50 text-blue-700 border-blue-100' : 
-                            employee.gender === 'Female' ? 'bg-pink-50 text-pink-700 border-pink-100' : 
-                            'bg-slate-50 text-slate-700 border-slate-100'
-                        }`}>
-                            {employee.gender}
-                        </span>
-                        <span className="text-xs text-slate-500 font-mono bg-slate-100 px-1 rounded w-fit">{employee.vrRate}</span>
-                     </div>
+                    <div className="flex flex-col gap-1">
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium border w-fit ${
+                          employee.gender === 'Male'
+                            ? 'bg-blue-50 text-blue-700 border-blue-100'
+                            : employee.gender === 'Female'
+                            ? 'bg-pink-50 text-pink-700 border-pink-100'
+                            : 'bg-slate-50 text-slate-700 border-slate-100'
+                        }`}
+                      >
+                        {employee.gender}
+                      </span>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100 w-fit">
+                        {employee.statusVR}
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-[10px] text-slate-400">
+                        <Info size={12} /> Perf: {employee.performanceRating}/5
+                      </span>
+                    </div>
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-slate-800">Start: {employee.startDate}</div>
-                    <div className="text-xs text-slate-500">DOB: {employee.dob} ({employee.age}y)</div>
+                    <div className="text-xs text-slate-500">DOB: {employee.dateOfBirth} ({employee.age ?? '-'}y)</div>
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex flex-col gap-1 text-xs">
-                       <span className="text-slate-600">Total: <span className="font-bold text-slate-800">{employee.totalMonthsExperience} mo</span></span>
-                       <span className="text-slate-400">Next Raise: {employee.inRaiseWindow ? <span className="text-amber-600 font-bold">NOW</span> : `${employee.monthsUntilNextRate ?? 'Max'} mo`}</span>
+                      <span className="text-slate-600">
+                        Total: <span className="font-bold text-slate-800">{employee.totalExperienceMonths} mo</span>
+                      </span>
+                      <span className="text-slate-400">
+                        Next Raise:{' '}
+                        {employee.inRaiseWindow ? (
+                          <span className="text-amber-600 font-bold">NOW</span>
+                        ) : (
+                          `${employee.monthsToNextRaise ?? 'Max'} mo`
+                        )}
+                      </span>
                     </div>
                   </td>
-                  {/* Dynamic Columns Rendering */}
-                  {columns.filter(c => !c.isSystem).map(col => (
+                  {columns
+                    .filter((c) => !c.isSystem)
+                    .map((col) => (
                       <td key={col.id} className="px-6 py-4 text-slate-600">
-                          {getCustomValue(employee, col.id)}
+                        {getCustomValue(employee, col.id)}
                       </td>
-                  ))}
+                    ))}
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-1">
-                        {employee.inRaiseWindow && (
-                             <button 
-                                onClick={() => setRaiseInfoEmp(employee)}
-                                className="p-2 bg-amber-50 text-amber-600 rounded-full hover:bg-amber-100 transition-colors mr-2"
-                                title="Raise Due!"
-                             >
-                                 <AlertCircle size={16} />
-                             </button>
-                        )}
-                        <button 
+                      {employee.inRaiseWindow && (
+                        <button
+                          onClick={() => setRaiseInfoEmp(employee)}
+                          className="p-2 bg-amber-50 text-amber-600 rounded-full hover:bg-amber-100 transition-colors mr-2"
+                          title="Raise Due!"
+                        >
+                          <AlertCircle size={16} />
+                        </button>
+                      )}
+                      <button
                         onClick={() => handleEditClick(employee.id)}
                         className="p-2 hover:bg-white rounded-full text-slate-400 hover:text-indigo-600 hover:shadow-sm transition-all border border-transparent hover:border-slate-100"
-                        >
+                      >
                         <Edit size={16} />
-                        </button>
-                        <button 
+                      </button>
+                      <button
                         onClick={() => setDeletingId(employee.id)}
                         className="p-2 hover:bg-white rounded-full text-slate-400 hover:text-rose-600 hover:shadow-sm transition-all border border-transparent hover:border-slate-100"
-                        >
+                      >
                         <Trash2 size={16} />
-                        </button>
+                      </button>
                     </div>
                   </td>
                 </tr>
               ))}
+              {filteredEmployees.length === 0 && (
+                <tr>
+                  <td className="px-6 py-6 text-center text-slate-400" colSpan={columns.length + 5}>
+                    No employees found.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* EDIT MODAL */}
       {editingId && (
-        <EditEmployeeModal 
-          employee={employees.find(e => e.id === editingId)!} 
+        <EditEmployeeModal
+          employee={employees.find((e) => e.id === editingId)!}
           columns={columns}
           onClose={handleCloseEdit}
           onSave={(updated) => {
@@ -185,15 +223,13 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({ employees, columns, 
         />
       )}
 
-      {/* ADD NEW MODAL (Reusing Edit Modal) */}
       {isAdding && (
-          <EditEmployeeModal 
+        <EditEmployeeModal
           employee={EMPTY_EMPLOYEE}
           columns={columns}
           onClose={handleCloseEdit}
           onSave={(newEmp) => {
-            // Generate ID if missing
-            const empWithId = { ...newEmp, id: (Math.random() * 100000).toFixed(0) };
+            const empWithId = { ...newEmp, id: crypto.randomUUID() };
             onAdd(empWithId);
             handleCloseEdit();
           }}
@@ -201,83 +237,89 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({ employees, columns, 
         />
       )}
 
-      {/* DELETE CONFIRMATION MODAL */}
       {deletingId && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4 animate-fade-in">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center animate-fade-in-up">
-                <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Trash2 size={24} />
-                </div>
-                <h3 className="text-lg font-bold text-slate-900 mb-2">Delete Employee?</h3>
-                <p className="text-sm text-slate-500 mb-6">
-                    Are you sure you want to delete this employee? This action cannot be undone and will remove them from all metrics.
-                </p>
-                <div className="flex gap-3">
-                    <button 
-                        onClick={() => setDeletingId(null)}
-                        className="flex-1 py-2 text-slate-600 font-medium hover:bg-slate-100 rounded-lg transition-colors"
-                    >
-                        Cancel
-                    </button>
-                    <button 
-                        onClick={() => { onRemove(deletingId); setDeletingId(null); }}
-                        className="flex-1 py-2 bg-rose-600 text-white font-medium rounded-lg hover:bg-rose-700 transition-colors shadow-sm"
-                    >
-                        Delete
-                    </button>
-                </div>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center animate-fade-in-up">
+            <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Trash2 size={24} />
             </div>
+            <h3 className="text-lg font-bold text-slate-900 mb-2">Delete Employee?</h3>
+            <p className="text-sm text-slate-500 mb-6">
+              Are you sure you want to delete this employee? This action cannot be undone and will remove them from all metrics.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeletingId(null)}
+                className="flex-1 py-2 text-slate-600 font-medium hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  onRemove(deletingId);
+                  setDeletingId(null);
+                }}
+                className="flex-1 py-2 bg-rose-600 text-white font-medium rounded-lg hover:bg-rose-700 transition-colors shadow-sm"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
       {raiseInfoEmp && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-fade-in-up p-6">
-                  <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                          <div className="bg-amber-100 p-2 rounded-full text-amber-600">
-                              <AlertCircle size={24} />
-                          </div>
-                          <div>
-                              <h3 className="text-lg font-bold text-slate-800">Raise Action Required</h3>
-                              <p className="text-sm text-slate-500">{raiseInfoEmp.name}</p>
-                          </div>
-                      </div>
-                      <button onClick={() => setRaiseInfoEmp(null)} className="text-slate-400 hover:text-slate-600">
-                          <X size={20} />
-                      </button>
-                  </div>
-                  
-                  <div className="space-y-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
-                      <div className="flex justify-between text-sm">
-                          <span className="text-slate-500">Current Tenure:</span>
-                          <span className="font-bold text-slate-800">{raiseInfoEmp.totalMonthsExperience} Months</span>
-                      </div>
-                       <div className="flex justify-between text-sm">
-                          <span className="text-slate-500">Current Rate:</span>
-                          <span className="font-bold text-slate-800">{raiseInfoEmp.vrRate}</span>
-                      </div>
-                      <div className="border-t border-slate-200 pt-2 mt-2">
-                           <div className="flex justify-between text-sm">
-                                <span className="text-slate-500">Next Milestone:</span>
-                                <span className="font-bold text-indigo-600">{Math.ceil(raiseInfoEmp.totalMonthsExperience)} Month Mark</span>
-                           </div>
-                           <p className="text-xs text-slate-400 mt-2">
-                               This employee is within the 15-day window for their next automatic wage increase. Please review and process.
-                           </p>
-                      </div>
-                  </div>
-
-                  <div className="mt-6 flex justify-end">
-                      <button 
-                        onClick={() => setRaiseInfoEmp(null)}
-                        className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors"
-                      >
-                          Acknowledge
-                      </button>
-                  </div>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-fade-in-up p-6">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="bg-amber-100 p-2 rounded-full text-amber-600">
+                  <AlertCircle size={24} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-800">Raise Action Required</h3>
+                  <p className="text-sm text-slate-500">{formatEmployeeName(raiseInfoEmp)}</p>
+                </div>
               </div>
+              <button onClick={() => setRaiseInfoEmp(null)} className="text-slate-400 hover:text-slate-600">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="space-y-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500">Current Tenure:</span>
+                <span className="font-bold text-slate-800">{raiseInfoEmp.totalExperienceMonths} Months</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-500">Current Rate:</span>
+                <span className="font-bold text-slate-800">{raiseInfoEmp.statusVR}</span>
+              </div>
+              <div className="border-t border-slate-200 pt-2 mt-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Next Milestone:</span>
+                  <span className="font-bold text-indigo-600">
+                    {raiseInfoEmp.monthsToNextRaise !== null
+                      ? `${raiseInfoEmp.totalExperienceMonths + raiseInfoEmp.monthsToNextRaise} Month Mark`
+                      : 'Top Band'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 mt-2">
+                  This employee is within the raise window. Please review and process.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setRaiseInfoEmp(null)}
+                className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors"
+              >
+                Acknowledge
+              </button>
+            </div>
           </div>
+        </div>
       )}
     </>
   );
@@ -293,40 +335,70 @@ interface EditEmployeeModalProps {
 
 const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ employee, columns, onClose, onSave, title }) => {
   const [formData, setFormData] = useState<Employee>({ ...employee });
+  const [error, setError] = useState<string | null>(null);
 
   const commonLanguages = [
-    "English", "Spanish", "French", "German", "Chinese", 
-    "Japanese", "Arabic", "Hindi", "Portuguese", "Russian"
+    'English',
+    'Spanish',
+    'French',
+    'German',
+    'Chinese',
+    'Japanese',
+    'Arabic',
+    'Hindi',
+    'Portuguese',
+    'Russian',
   ];
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: (name === 'previousExperienceMonths') ? Number(value) : value
+      [name]:
+        name === 'previousExperienceMonths' || name === 'sickDaysYTD' || name === 'performanceRating'
+          ? Number(value)
+          : value,
     }));
   };
 
   const handleLanguageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData(prev => ({ ...prev, languages: e.target.value.split(',').map(s => s.trim()) }));
+    setFormData((prev) => ({ ...prev, languages: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) }));
   };
 
   const handleAddLanguage = (lang: string) => {
     if (!lang) return;
-    const current = formData.languages.map(l => l.trim()).filter(Boolean);
+    const current = formData.languages.map((l) => l.trim()).filter(Boolean);
     if (!current.includes(lang)) {
-        setFormData(prev => ({ ...prev, languages: [...current, lang] }));
+      setFormData((prev) => ({ ...prev, languages: [...current, lang] }));
     }
   };
 
-  const handleCustomChange = (colId: string, value: any) => {
-    setFormData(prev => ({
-        ...prev,
-        customData: {
-            ...prev.customData,
-            [colId]: value
-        }
+  const handleCustomChange = (colId: string, value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      customFields: {
+        ...prev.customFields,
+        [colId]: value,
+      },
     }));
+  };
+
+  const handleSave = () => {
+    if (!formData.firstName || !formData.lastName || !formData.dateOfBirth || !formData.startDate || !formData.role) {
+      setError('Please fill in first name, last name, dates, and role.');
+      return;
+    }
+
+    const cleaned: Employee = {
+      ...formData,
+      previousExperienceMonths: Number(formData.previousExperienceMonths) || 0,
+      sickDaysYTD: Number(formData.sickDaysYTD) || 0,
+      performanceRating: Math.min(5, Math.max(1, Number(formData.performanceRating) || 1)),
+      monthsToNextRaise: formData.monthsToNextRaise ?? null,
+      totalExperienceMonths: formData.totalExperienceMonths || 0,
+    };
+
+    onSave(cleaned);
   };
 
   return (
@@ -340,140 +412,182 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ employee, columns
         </div>
 
         <div className="p-6 space-y-6">
-          {/* Personal Info Section */}
+          {error && <p className="text-sm text-rose-600 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2">{error}</p>}
           <div>
             <h4 className="text-sm font-semibold text-slate-900 mb-3 uppercase tracking-wider">Personal Information</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Full Name</label>
-                <input 
-                  name="name" 
-                  value={formData.name} 
-                  onChange={handleChange} 
-                  className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-400" 
+                <label className="block text-xs font-medium text-slate-500 mb-1">First Name</label>
+                <input
+                  name="firstName"
+                  value={formData.firstName}
+                  onChange={handleChange}
+                  className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-400"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1 flex items-center gap-1"><Calendar size={10} /> Date of Birth</label>
-                <input 
-                  type="date" 
-                  name="dob" 
-                  value={formData.dob} 
-                  onChange={handleChange} 
-                  className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-400" 
+                <label className="block text-xs font-medium text-slate-500 mb-1">Last Name</label>
+                <input
+                  name="lastName"
+                  value={formData.lastName}
+                  onChange={handleChange}
+                  className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-400"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1 flex items-center gap-1">
+                  <Calendar size={10} /> Date of Birth
+                </label>
+                <input
+                  type="date"
+                  name="dateOfBirth"
+                  value={formData.dateOfBirth}
+                  onChange={handleChange}
+                  className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-400"
                 />
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-1">Gender</label>
-                <select 
-                  name="gender" 
-                  value={formData.gender} 
-                  onChange={handleChange} 
+                <select
+                  name="gender"
+                  value={formData.gender}
+                  onChange={handleChange}
                   className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none appearance-none"
                 >
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Non-Binary">Non-Binary</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
                 </select>
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-1">Country</label>
-                <input 
-                  name="country" 
-                  value={formData.country} 
-                  onChange={handleChange} 
-                  className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-400" 
+                <input
+                  name="country"
+                  value={formData.country}
+                  onChange={handleChange}
+                  className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-400"
                 />
               </div>
             </div>
           </div>
 
-          {/* Role & Employment Section */}
           <div>
             <h4 className="text-sm font-semibold text-slate-900 mb-3 uppercase tracking-wider border-t border-slate-100 pt-4">Role & Employment</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-1">Job Role</label>
-                <input 
-                  name="role" 
-                  value={formData.role} 
-                  onChange={handleChange} 
-                  className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-400" 
+                <input
+                  name="role"
+                  value={formData.role}
+                  onChange={handleChange}
+                  className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-400"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1 flex items-center gap-1"><Calendar size={10} /> Start Date</label>
-                <input 
-                  type="date" 
-                  name="startDate" 
-                  value={formData.startDate} 
-                  onChange={handleChange} 
-                  className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-400" 
+                <label className="block text-xs font-medium text-slate-500 mb-1 flex items-center gap-1">
+                  <Calendar size={10} /> Start Date
+                </label>
+                <input
+                  type="date"
+                  name="startDate"
+                  value={formData.startDate}
+                  onChange={handleChange}
+                  className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-400"
                 />
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-1">Previous Experience (Months)</label>
-                <input 
-                  type="number" 
-                  name="previousExperienceMonths" 
-                  value={formData.previousExperienceMonths} 
-                  onChange={handleChange} 
-                  className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-400" 
+                <input
+                  type="number"
+                  name="previousExperienceMonths"
+                  value={formData.previousExperienceMonths}
+                  onChange={handleChange}
+                  className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-400"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Performance Rating (1-5)</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={5}
+                  name="performanceRating"
+                  value={formData.performanceRating}
+                  onChange={handleChange}
+                  className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-400"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Sick Days YTD</label>
+                <input
+                  type="number"
+                  min={0}
+                  name="sickDaysYTD"
+                  value={formData.sickDaysYTD}
+                  onChange={handleChange}
+                  className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-400"
                 />
               </div>
               <div className="col-span-1 md:col-span-2">
-                 <label className="block text-xs font-medium text-slate-500 mb-1">Languages</label>
-                 <div className="flex gap-2">
-                    <input 
-                      name="languages" 
-                      value={formData.languages.join(', ')} 
-                      onChange={handleLanguageChange} 
-                      className="flex-1 bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-400" 
-                      placeholder="Type manually..."
-                    />
-                    <select 
-                        onChange={(e) => { handleAddLanguage(e.target.value); e.target.value = ''; }}
-                        className="w-40 bg-white text-slate-900 border border-slate-200 rounded-lg px-2 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                    >
-                        <option value="">+ Quick Add</option>
-                        {commonLanguages.map(l => <option key={l} value={l}>{l}</option>)}
-                    </select>
-                 </div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Languages</label>
+                <div className="flex gap-2">
+                  <input
+                    name="languages"
+                    value={formData.languages.join(', ')}
+                    onChange={handleLanguageChange}
+                    className="flex-1 bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-400"
+                    placeholder="Type manually..."
+                  />
+                  <select
+                    onChange={(e) => {
+                      handleAddLanguage(e.target.value);
+                      e.target.value = '';
+                    }}
+                    className="w-40 bg-white text-slate-900 border border-slate-200 rounded-lg px-2 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                  >
+                    <option value="">+ Quick Add</option>
+                    {commonLanguages.map((l) => (
+                      <option key={l} value={l}>
+                        {l}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Dynamic Custom Columns Section */}
-          {columns.filter(c => !c.isSystem).length > 0 && (
-              <div>
-                <h4 className="text-sm font-semibold text-indigo-600 mb-3 uppercase tracking-wider border-t border-indigo-100 pt-4">Custom Fields</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {columns.filter(c => !c.isSystem).map(col => (
-                        <div key={col.id}>
-                            <label className="block text-xs font-medium text-slate-500 mb-1">{col.label}</label>
-                            <input 
-                                type={col.type === 'number' ? 'number' : col.type === 'date' ? 'date' : 'text'}
-                                value={formData.customData?.[col.id] || ''}
-                                onChange={(e) => handleCustomChange(col.id, e.target.value)}
-                                className="w-full bg-indigo-50/30 text-slate-900 border border-indigo-100 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-400" 
-                            />
-                        </div>
-                    ))}
-                </div>
+          {columns.filter((c) => !c.isSystem).length > 0 && (
+            <div>
+              <h4 className="text-sm font-semibold text-indigo-600 mb-3 uppercase tracking-wider border-t border-indigo-100 pt-4">Custom Fields</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {columns
+                  .filter((c) => !c.isSystem)
+                  .map((col) => (
+                    <div key={col.id}>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">{col.label}</label>
+                      <input
+                        type={col.type === 'number' ? 'number' : col.type === 'date' ? 'date' : 'text'}
+                        value={(formData.customFields?.[col.id] as string) || ''}
+                        onChange={(e) => handleCustomChange(col.id, e.target.value)}
+                        className="w-full bg-indigo-50/30 text-slate-900 border border-indigo-100 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-400"
+                      />
+                    </div>
+                  ))}
               </div>
+            </div>
           )}
-
         </div>
 
         <div className="p-6 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 rounded-b-2xl">
-          <button 
+          <button
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-200 rounded-lg transition-colors"
           >
             Cancel
           </button>
-          <button 
-            onClick={() => onSave(formData)}
+          <button
+            onClick={handleSave}
             className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg flex items-center gap-2 transition-colors shadow-sm"
           >
             <Save size={16} /> Save Changes
