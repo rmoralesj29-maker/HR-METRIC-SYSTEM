@@ -58,7 +58,10 @@ export const CloudMemoryTest: React.FC = () => {
 
     if (insertResult.error) {
       const errorText = `Insert failed: ${insertResult.error.message}`;
-      const needsTable = insertResult.error.message?.toLowerCase().includes('could not find the table');
+      const messageLower = insertResult.error.message?.toLowerCase() ?? '';
+      const needsTable =
+        messageLower.includes('could not find the table') || messageLower.includes('does not exist') ||
+        messageLower.includes('relation "app_memory_test"');
       const creationHint = needsTable
         ?
           'Create the table by opening supabase/app_memory_test.sql in the Supabase SQL Editor, run it, then refresh the schema cache in the Table Editor.'
