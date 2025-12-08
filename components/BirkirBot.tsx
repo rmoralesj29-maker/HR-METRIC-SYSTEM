@@ -3,6 +3,7 @@ import { Employee } from '../types';
 import { Sparkles, Send, X, Bot } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { formatEmployeeName } from '../utils/experience';
+import { GoogleGenAI } from '@google/genai';
 
 interface BirkirBotProps {
   employees: Employee[];
@@ -56,11 +57,65 @@ export const BirkirBot: React.FC<BirkirBotProps> = ({ employees }) => {
     setMessages((prev) => [...prev, { role: 'user', text: userMsg }]);
     setLoading(true);
 
-    setTimeout(() => {
-      const reply = buildLocalReply(employees, userMsg);
-      setMessages((prev) => [...prev, { role: 'model', text: reply }]);
-      setLoading(false);
-    }, 300);
+    // Prefer API if available, else fallback to local
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+    if (apiKey) {
+      try {
+        const ai = new GoogleGenAI({ apiKey });
+        const contextData = employees.map((e) => ({
+          name: formatEmployeeName(e),
+          role: e.role,
+          age: e.age,
+          tenureMonths: e.totalExperienceMonths,
+          vrRate: e.statusVR,
+          inRaiseWindow: e.inRaiseWindow,
+          monthsToNextRaise: e.monthsToNextRaise,
+          country: e.country,
+          languages: e.languages,
+          gender: e.gender,
+        }));
+
+        const systemInstruction = `
+          You are Birkir, an HR AI assistant for the 'E.Track' system.
+          You have access to the current employee dataset provided in JSON format below.
+
+          Your capabilities:
+          1. Answer questions about specific employees (e.g., "When is Alina's next raise?", "How old is Ben?").
+          2. Provide aggregate statistics (e.g., "How many people speak Spanish?", "What is the gender ratio?").
+          3. Analyze the "Raise Window". If 'inRaiseWindow' is true, they need a review immediately.
+          4. Be helpful, professional, yet friendly.
+
+          Data: ${JSON.stringify(contextData)}
+        `;
+
+        const model = ai.models.generateContent({
+          model: 'gemini-2.0-flash',
+          config: {
+            systemInstruction: systemInstruction,
+          },
+          contents: [{ role: 'user', parts: [{ text: userMsg }] }],
+        });
+
+        const response = await model;
+        const text = (await response).text() || "I'm having trouble thinking right now.";
+        setMessages((prev) => [...prev, { role: 'model', text }]);
+      } catch (error) {
+        console.error(error);
+        setMessages((prev) => [
+          ...prev,
+          { role: 'model', text: 'Sorry, I encountered an error connecting to my brain. Falling back to local simple query.' },
+        ]);
+        // Fallback to local
+        const reply = buildLocalReply(employees, userMsg);
+        setMessages((prev) => [...prev, { role: 'model', text: reply }]);
+      }
+    } else {
+      setTimeout(() => {
+        const reply = buildLocalReply(employees, userMsg);
+        setMessages((prev) => [...prev, { role: 'model', text: reply }]);
+      }, 300);
+    }
+    setLoading(false);
   };
 
   return (
@@ -135,7 +190,11 @@ export const BirkirBot: React.FC<BirkirBotProps> = ({ employees }) => {
                 <Send size={18} />
               </button>
             </div>
-            <p className="text-[10px] text-slate-400 mt-2 text-center">Responses generated locally from current dashboard data.</p>
+            <p className="text-[10px] text-slate-400 mt-2 text-center">
+              {import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY
+                ? 'Powered by Gemini AI'
+                : 'Responses generated locally from current dashboard data.'}
+            </p>
           </div>
         </div>
       )}

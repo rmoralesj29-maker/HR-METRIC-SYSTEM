@@ -1,8 +1,18 @@
 export type Gender = 'Male' | 'Female' | 'Other' | string;
 export type StatusVR = 'VR0' | 'VR1' | 'VR2' | 'VR3' | 'VR4' | string;
 
+// Enum for backward compatibility if needed, though HEAD uses string
+export enum VRRate {
+  VR0 = 'VR0',
+  VR1 = 'VR1',
+  VR2 = 'VR2',
+  VR3 = 'VR3',
+  VR4 = 'VR4',
+}
+
 export interface Employee {
   id: string;
+  // HEAD fields
   firstName: string;
   lastName: string;
   gender: Gender;
@@ -20,6 +30,25 @@ export interface Employee {
   customFields?: Record<string, string | number | null>;
   inRaiseWindow?: boolean;
   age?: number;
+
+  // Fields from other branch for compatibility
+  // name: string; // Use firstName + lastName
+  // dob: string; // Use dateOfBirth
+  // vrRate: VRRate; // Use statusVR
+  // customData: any; // Use customFields
+}
+
+// Keeping this type alias for compatibility with other branch's components if they use it explicitly
+export interface CalculatedEmployeeStats extends Employee {
+  totalDaysWorked: number;
+  currentMonthsWorked: number;
+  nextMilestone: number | null;
+}
+
+export interface ChartData {
+  name: string;
+  value: number;
+  fill?: string;
 }
 
 export type ColumnType = 'text' | 'number' | 'date' | 'select';
