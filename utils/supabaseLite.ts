@@ -19,6 +19,8 @@ interface InsertOptions {
   returning?: 'representation' | 'minimal';
 }
 
+const DEFAULT_SCHEMA = 'public';
+
 class SupabaseTableClient {
   constructor(private readonly supabaseUrl: string, private readonly supabaseKey: string, private readonly table: string) {}
 
@@ -63,6 +65,8 @@ class SupabaseTableClient {
       apikey: this.supabaseKey,
       Authorization: `Bearer ${this.supabaseKey}`,
       'Content-Type': 'application/json',
+      'Accept-Profile': DEFAULT_SCHEMA,
+      'Content-Profile': DEFAULT_SCHEMA,
       ...extra,
     };
   }
