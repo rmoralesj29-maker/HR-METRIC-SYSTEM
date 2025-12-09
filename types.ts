@@ -83,6 +83,17 @@ export interface SystemSettings {
   monthlySickDays: MonthlySickData[];
 }
 
+export interface Vacation {
+  id: string;
+  employeeId: string;
+  startDate: string; // ISO date string YYYY-MM-DD
+  endDate: string; // ISO date string YYYY-MM-DD
+  days: number;
+  type: 'Vacation' | 'Sick' | 'Personal' | 'Other';
+  status: 'Pending' | 'Approved' | 'Rejected';
+  notes?: string;
+}
+
 export const DEFAULT_SETTINGS: SystemSettings = {
   adultAgeThreshold: 22,
   raiseMilestones: [6, 12, 36, 60],

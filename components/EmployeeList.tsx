@@ -23,7 +23,7 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({ employees, columns, 
       const fullName = formatEmployeeName(e).toLowerCase();
       return fullName.includes(filter.toLowerCase()) || e.role.toLowerCase().includes(filter.toLowerCase());
     })
-    .sort((a, b) => a.startDate.localeCompare(b.startDate));
+    .sort((a, b) => formatEmployeeName(a).localeCompare(formatEmployeeName(b)));
 
   const handleEditClick = (id: string) => {
     setEditingId(id);
@@ -486,6 +486,7 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ employee, columns
                 >
                   <option value="">Select Role</option>
                   <option value="Employee">Employee</option>
+                  <option value="MR">MR</option>
                   <option value="Manager">Manager</option>
                 </select>
               </div>

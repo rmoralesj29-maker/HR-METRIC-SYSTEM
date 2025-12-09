@@ -1,16 +1,18 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { LayoutDashboard, Users, Settings as SettingsIcon, LogOut } from 'lucide-react';
+import { LayoutDashboard, Users, Settings as SettingsIcon, LogOut, Palmtree } from 'lucide-react';
 import { SystemSettings, DEFAULT_SETTINGS, DEFAULT_COLUMNS, ColumnDefinition } from './types';
 import { Dashboard } from './components/Dashboard';
 import { EmployeeList } from './components/EmployeeList';
 import { Settings } from './components/Settings';
+import { Vacations } from './components/Vacations';
 import { BirkirBot } from './components/BirkirBot';
 import { useEmployeeStore } from './utils/employeeStore';
+import { VacationProvider } from './utils/vacationStore';
 import { enrichEmployee } from './utils/experience';
 
 const App: React.FC = () => {
   const { employees, addEmployee, updateEmployee, deleteEmployee } = useEmployeeStore();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'employees' | 'settings'>('employees');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'employees' | 'vacations' | 'settings'>('employees');
   const [showRaiseDueOnly, setShowRaiseDueOnly] = useState(false);
 
   const [systemSettings, setSystemSettings] = useState<SystemSettings>(() => {
@@ -72,12 +74,13 @@ const App: React.FC = () => {
     setActiveTab('employees');
   };
 
-  const handleTabChange = (tab: 'dashboard' | 'employees' | 'settings') => {
+  const handleTabChange = (tab: 'dashboard' | 'employees' | 'vacations' | 'settings') => {
     setActiveTab(tab);
     if (tab !== 'employees') setShowRaiseDueOnly(false);
   };
 
   return (
+    <VacationProvider>
     <div className="flex h-screen bg-slate-50 font-sans text-slate-900">
       {/* Sidebar */}
       <aside className="w-64 bg-white text-slate-600 flex flex-col shadow-xl z-10 hidden md:flex border-r border-slate-100">
@@ -112,6 +115,18 @@ const App: React.FC = () => {
           >
             <Users size={20} />
             <span className="font-medium">Employees</span>
+          </button>
+
+          <button
+            onClick={() => handleTabChange('vacations')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+              activeTab === 'vacations'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                : 'hover:bg-slate-50 text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Palmtree size={20} />
+            <span className="font-medium">Vacations</span>
           </button>
 
           <button
@@ -194,6 +209,10 @@ const App: React.FC = () => {
             />
           )}
 
+          {activeTab === 'vacations' && (
+            <Vacations />
+          )}
+
           {activeTab === 'settings' && (
             <Settings
               settings={systemSettings}
@@ -209,6 +228,7 @@ const App: React.FC = () => {
       {/* Birkir Chatbot */}
       <BirkirBot employees={calculatedEmployees} />
     </div>
+    </VacationProvider>
   );
 };
 

@@ -96,6 +96,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings, 
       .sort((a, b) => b.value - a.value);
   }, [stats.languageDistribution]);
 
+  const countryData = useMemo(() => {
+    const countryDist = employees.reduce((acc, emp) => {
+      const country = emp.country || 'Unknown';
+      acc[country] = (acc[country] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    return Object.entries(countryDist)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+  }, [employees]);
+
   return (
     <div className="space-y-6">
       {/* Top Stat Cards */}
@@ -266,6 +277,33 @@ export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings, 
             {languageData.length === 0 && stats.totalEmployees > 0 && (
               <p className="text-center text-slate-400 text-sm mt-2">No language data available</p>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Country Stats */}
+      {settings.showCountryStats && (
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+          <h3 className="text-lg font-bold text-slate-800 mb-4">Employee Distribution by Country</h3>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={countryData} layout="vertical" margin={{ left: 40 }}>
+                <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} />
+                <XAxis type="number" hide />
+                <YAxis dataKey="name" type="category" width={100} tick={{ fill: '#64748b', fontSize: 12 }} />
+                <Tooltip
+                  cursor={{ fill: '#f1f5f9' }}
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                />
+                <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                  {countryData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                  <LabelList dataKey="value" position="right" fill="#64748b" />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+            {stats.totalEmployees === 0 && <p className="text-center text-slate-400 text-sm mt-2">No data yet</p>}
           </div>
         </div>
       )}
