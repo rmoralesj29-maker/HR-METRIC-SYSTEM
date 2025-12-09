@@ -1,10 +1,11 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { LayoutDashboard, Users, Settings as SettingsIcon, LogOut, Palmtree } from 'lucide-react';
+import { LayoutDashboard, Users, Settings as SettingsIcon, LogOut, Palmtree, Thermometer } from 'lucide-react';
 import { SystemSettings, DEFAULT_SETTINGS, DEFAULT_COLUMNS, ColumnDefinition } from './types';
 import { Dashboard } from './components/Dashboard';
 import { EmployeeList } from './components/EmployeeList';
 import { Settings } from './components/Settings';
 import { Vacations } from './components/Vacations';
+import { SickTracker } from './components/SickTracker';
 import { BirkirBot } from './components/BirkirBot';
 import { useEmployeeStore } from './utils/employeeStore';
 import { VacationProvider } from './utils/vacationStore';
@@ -12,7 +13,7 @@ import { enrichEmployee } from './utils/experience';
 
 const App: React.FC = () => {
   const { employees, addEmployee, updateEmployee, deleteEmployee } = useEmployeeStore();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'employees' | 'vacations' | 'settings'>('employees');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'employees' | 'vacations' | 'sickTracker' | 'settings'>('employees');
   const [showRaiseDueOnly, setShowRaiseDueOnly] = useState(false);
 
   const [systemSettings, setSystemSettings] = useState<SystemSettings>(() => {
@@ -74,7 +75,7 @@ const App: React.FC = () => {
     setActiveTab('employees');
   };
 
-  const handleTabChange = (tab: 'dashboard' | 'employees' | 'vacations' | 'settings') => {
+  const handleTabChange = (tab: 'dashboard' | 'employees' | 'vacations' | 'sickTracker' | 'settings') => {
     setActiveTab(tab);
     if (tab !== 'employees') setShowRaiseDueOnly(false);
   };
@@ -127,6 +128,18 @@ const App: React.FC = () => {
           >
             <Palmtree size={20} />
             <span className="font-medium">Vacations</span>
+          </button>
+
+          <button
+            onClick={() => handleTabChange('sickTracker')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+              activeTab === 'sickTracker'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                : 'hover:bg-slate-50 text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Thermometer size={20} />
+            <span className="font-medium">Sick Tracker</span>
           </button>
 
           <button
@@ -185,6 +198,8 @@ const App: React.FC = () => {
                   ? 'Overview of HR metrics and analytics.'
                   : activeTab === 'employees'
                   ? 'Manage workforce details and records.'
+                  : activeTab === 'sickTracker'
+                  ? 'Monitor and record employee sick leave.'
                   : 'Configure system rules, fields, and export data.'}
               </p>
             </div>
@@ -211,6 +226,10 @@ const App: React.FC = () => {
 
           {activeTab === 'vacations' && (
             <Vacations />
+          )}
+
+          {activeTab === 'sickTracker' && (
+            <SickTracker />
           )}
 
           {activeTab === 'settings' && (
