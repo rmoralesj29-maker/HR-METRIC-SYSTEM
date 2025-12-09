@@ -74,7 +74,7 @@ export const getDashboardStats = (employees: Employee[], settings: SystemSetting
     if (emp.languages && Array.isArray(emp.languages)) {
       emp.languages.forEach((lang) => {
         const trimmedLang = lang.trim();
-        if (trimmedLang) {
+        if (trimmedLang && trimmedLang.toLowerCase() !== 'english') {
           acc[trimmedLang] = (acc[trimmedLang] || 0) + 1;
         }
       });
