@@ -18,10 +18,12 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({ employees, columns, 
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [raiseInfoEmp, setRaiseInfoEmp] = useState<Employee | null>(null);
 
-  const filteredEmployees = employees.filter((e) => {
-    const fullName = formatEmployeeName(e).toLowerCase();
-    return fullName.includes(filter.toLowerCase()) || e.role.toLowerCase().includes(filter.toLowerCase());
-  });
+  const filteredEmployees = employees
+    .filter((e) => {
+      const fullName = formatEmployeeName(e).toLowerCase();
+      return fullName.includes(filter.toLowerCase()) || e.role.toLowerCase().includes(filter.toLowerCase());
+    })
+    .sort((a, b) => a.startDate.localeCompare(b.startDate));
 
   const handleEditClick = (id: string) => {
     setEditingId(id);
@@ -476,12 +478,16 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ employee, columns
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-1">Job Role</label>
-                <input
+                <select
                   name="role"
                   value={formData.role}
                   onChange={handleChange}
-                  className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-400"
-                />
+                  className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none appearance-none"
+                >
+                  <option value="">Select Role</option>
+                  <option value="Employee">Employee</option>
+                  <option value="Manager">Manager</option>
+                </select>
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-1 flex items-center gap-1">

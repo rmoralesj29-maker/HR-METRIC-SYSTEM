@@ -28,6 +28,12 @@ interface DashboardProps {
 
 const COLORS = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ef4444', '#14b8a6'];
 
+const GENDER_COLORS: Record<string, string> = {
+  Male: '#8b5cf6', // Purple
+  Female: '#ec4899', // Pink
+};
+const DEFAULT_GENDER_COLOR = '#94a3b8';
+
 export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings, onAlertClick }) => {
   const stats = useMemo(() => getDashboardStats(employees, settings), [employees, settings]);
 
@@ -60,14 +66,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings, 
         value: employees.filter((e) => (e.totalExperienceMonths || 0) >= 6 && (e.totalExperienceMonths || 0) < 12).length,
       },
       {
-        name: '1-3y',
-        value: employees.filter((e) => (e.totalExperienceMonths || 0) >= 12 && (e.totalExperienceMonths || 0) < 36).length,
+        name: '1y-2y',
+        value: employees.filter((e) => (e.totalExperienceMonths || 0) >= 12 && (e.totalExperienceMonths || 0) < 24).length,
       },
       {
-        name: '3-5y',
-        value: employees.filter((e) => (e.totalExperienceMonths || 0) >= 36 && (e.totalExperienceMonths || 0) < 60).length,
+        name: '2y-3y',
+        value: employees.filter((e) => (e.totalExperienceMonths || 0) >= 24 && (e.totalExperienceMonths || 0) < 36).length,
       },
-      { name: '5y+', value: employees.filter((e) => (e.totalExperienceMonths || 0) >= 60).length },
+      { name: '3y+', value: employees.filter((e) => (e.totalExperienceMonths || 0) >= 36).length },
     ],
     [employees]
   );
@@ -223,7 +229,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings, 
                   label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                 >
                   {genderData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell key={`cell-${index}`} fill={GENDER_COLORS[entry.name] || DEFAULT_GENDER_COLOR} />
                   ))}
                 </Pie>
                 <Tooltip />
