@@ -22,6 +22,7 @@ export const Vacations: React.FC = () => {
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   const handleAddNew = () => setIsAdding(true);
   const handleEdit = (id: string) => setEditingId(id);
@@ -38,7 +39,9 @@ export const Vacations: React.FC = () => {
   const filteredVacations = vacations
     .filter(v => {
       const empName = getEmployeeName(v.employeeId).toLowerCase();
-      return empName.includes(filter.toLowerCase()) || v.type.toLowerCase().includes(filter.toLowerCase());
+      const matchesSearch = empName.includes(filter.toLowerCase()) || v.type.toLowerCase().includes(filter.toLowerCase());
+      const matchesYear = new Date(v.startDate).getFullYear() === selectedYear;
+      return matchesSearch && matchesYear;
     })
     .sort((a, b) => b.startDate.localeCompare(a.startDate));
 
@@ -47,18 +50,18 @@ export const Vacations: React.FC = () => {
     const monthCounts: Record<string, number> = {};
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-    vacations.forEach(v => {
+    filteredVacations.forEach(v => {
       const date = new Date(v.startDate);
       const month = months[date.getMonth()];
       monthCounts[month] = (monthCounts[month] || 0) + 1;
     });
 
     return months.map(m => ({ name: m, value: monthCounts[m] || 0 }));
-  }, [vacations]);
+  }, [filteredVacations]);
 
   const topVacationTakers = useMemo(() => {
     const counts: Record<string, number> = {};
-    vacations.forEach(v => {
+    filteredVacations.forEach(v => {
        const empName = getEmployeeName(v.employeeId);
        counts[empName] = (counts[empName] || 0) + v.days;
     });
@@ -67,7 +70,7 @@ export const Vacations: React.FC = () => {
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 5);
-  }, [vacations, employees]);
+  }, [filteredVacations, employees]);
 
 
   return (
@@ -77,12 +80,23 @@ export const Vacations: React.FC = () => {
           <h2 className="text-2xl font-bold text-slate-800">Vacation Tracker</h2>
           <p className="text-slate-500 text-sm">Manage and track employee time off.</p>
         </div>
-        <button
-          onClick={handleAddNew}
-          className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-200"
-        >
-          <Plus size={16} /> Log Vacation
-        </button>
+        <div className="flex gap-2">
+            <select
+                className="bg-white border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2.5"
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(Number(e.target.value))}
+            >
+                <option value={2025}>2025</option>
+                <option value={2026}>2026</option>
+                <option value={2027}>2027</option>
+            </select>
+          <button
+            onClick={handleAddNew}
+            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-200"
+          >
+            <Plus size={16} /> Log Vacation
+          </button>
+        </div>
       </div>
 
       {/* Stats Row */}

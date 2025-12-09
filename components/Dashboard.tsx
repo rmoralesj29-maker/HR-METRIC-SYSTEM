@@ -88,6 +88,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings, 
   }, [employees]);
 
   const totalSickDaysYTD = settings.monthlySickDays.reduce((acc, curr) => acc + (Number(curr.value) || 0), 0);
+  const calculatedAvgSickDays = stats.totalEmployees > 0 ? (totalSickDaysYTD / stats.totalEmployees).toFixed(1) : 0;
   const averageTenureYears = (stats.averageTotalExperienceMonths / 12).toFixed(1);
 
   const languageData = useMemo(() => {
@@ -124,7 +125,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings, 
         <StatCard
           icon={<Thermometer className="text-white" size={24} />}
           title="Avg Sick Days"
-          value={stats.averageSickDays}
+          value={calculatedAvgSickDays}
           color="bg-rose-500"
         />
         <StatCard
@@ -255,7 +256,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings, 
       {settings.showLanguageStats && (
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
           <h3 className="text-lg font-bold text-slate-800 mb-4">Spoken Languages</h3>
-          <div className="h-64">
+          <div style={{ height: Math.max(languageData.length * 50, 256) }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={languageData} layout="vertical" margin={{ left: 40 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} />
@@ -285,7 +286,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings, 
       {settings.showCountryStats && (
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
           <h3 className="text-lg font-bold text-slate-800 mb-4">Employee Distribution by Country</h3>
-          <div className="h-64">
+          <div style={{ height: Math.max(countryData.length * 50, 256) }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={countryData} layout="vertical" margin={{ left: 40 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} />

@@ -5,38 +5,39 @@ def verify_changes():
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
 
-        # Navigate to the app
-        page.goto("http://localhost:3000")
+        # Navigate to Dashboard
+        try:
+            page.goto("http://localhost:3000", timeout=30000)
+            page.wait_for_load_state("networkidle")
 
-        # 1. Verify "Vacations" tab exists and navigate to it
-        page.wait_for_selector("text=Vacations")
-        page.click("text=Vacations")
-        page.screenshot(path="verification/vacations_tab.png")
-        print("Vacations tab verified.")
+            # Verify Dashboard Stats (Avg Sick Days)
+            # Find "Avg Sick Days" card and take screenshot
+            page.screenshot(path="verification/dashboard_full.png", full_page=True)
+            print("Dashboard screenshot taken.")
 
-        # 2. Verify Employee List sorting and Role
-        page.click("text=Employees")
-        page.wait_for_selector("text=Employee Directory")
+            # Navigate to Vacations
+            # "Vacations" button text
+            page.get_by_role("button", name="Vacations").click()
+            page.wait_for_load_state("networkidle")
 
-        # Click Add New
-        page.click("text=Add New")
-        page.wait_for_selector("text=Add New Employee")
+            # Check Year Selector
+            # It should be present.
+            # There is a select element for year.
+            # We can select it by the values it has
 
-        # Check Role dropdown for 'MR'
-        page.select_option("select[name='role']", "MR")
-        page.screenshot(path="verification/add_employee_mr.png")
-        print("MR Role verified.")
+            # Select 2026
+            # The select in Vacations has 2025, 2026, 2027 options
+            page.locator("select").first.select_option("2026")
+            page.wait_for_timeout(500) # Wait for UI update
 
-        # Close modal
-        page.click("button:has-text('Cancel')")
+            page.screenshot(path="verification/vacations_2026.png", full_page=True)
+            print("Vacations 2026 screenshot taken.")
 
-        # 3. Verify Dashboard Countries Chart
-        page.click("text=Dashboard")
-        page.wait_for_selector("text=Employee Distribution by Country")
-        page.screenshot(path="verification/dashboard_country.png")
-        print("Country chart verified.")
-
-        browser.close()
+        except Exception as e:
+            print(f"Error: {e}")
+            page.screenshot(path="verification/error.png")
+        finally:
+            browser.close()
 
 if __name__ == "__main__":
     verify_changes()
