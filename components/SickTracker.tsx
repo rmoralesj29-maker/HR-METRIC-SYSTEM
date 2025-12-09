@@ -3,7 +3,7 @@ import { useVacationStore } from '../utils/vacationStore';
 import { useEmployeeStore } from '../utils/employeeStore';
 import { Vacation, Employee } from '../types';
 import { formatEmployeeName } from '../utils/experience';
-import { Plus, X, Calendar, Search, Trash2, Edit } from 'lucide-react';
+import { Plus, X, Search, Trash2, Edit } from 'lucide-react';
 import {
   BarChart,
   Bar,
@@ -12,11 +12,10 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Cell,
   LabelList
 } from 'recharts';
 
-export const Vacations: React.FC = () => {
+export const SickTracker: React.FC = () => {
   const { vacations, addVacation, updateVacation, deleteVacation } = useVacationStore();
   const { employees } = useEmployeeStore();
   const [isAdding, setIsAdding] = useState(false);
@@ -36,35 +35,39 @@ export const Vacations: React.FC = () => {
     return emp ? formatEmployeeName(emp) : 'Unknown Employee';
   };
 
-  const filteredVacations = vacations
+  const filteredSickDays = vacations
     .filter(v => {
-      // Exclude Sick days from Vacation Tracker
-      if (v.type === 'Sick') return false;
-
+      const isSick = v.type === 'Sick';
       const empName = getEmployeeName(v.employeeId).toLowerCase();
-      const matchesSearch = empName.includes(filter.toLowerCase()) || v.type.toLowerCase().includes(filter.toLowerCase());
+      const matchesSearch = empName.includes(filter.toLowerCase());
+      // Use string splitting for safer year extraction (YYYY-MM-DD)
       const matchesYear = parseInt(v.startDate.split('-')[0]) === selectedYear;
-      return matchesSearch && matchesYear;
+      return isSick && matchesSearch && matchesYear;
     })
     .sort((a, b) => b.startDate.localeCompare(a.startDate));
 
   // Stats
-  const vacationsByMonth = useMemo(() => {
+  const sickDaysByMonth = useMemo(() => {
     const monthCounts: Record<string, number> = {};
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-    filteredVacations.forEach(v => {
-      const date = new Date(v.startDate);
-      const month = months[date.getMonth()];
-      monthCounts[month] = (monthCounts[month] || 0) + 1;
+    filteredSickDays.forEach(v => {
+      // Use string splitting for safer month extraction (YYYY-MM-DD)
+      // Month is 0-indexed in Date, but 1-indexed in ISO string (01-12)
+      // So '01' is Jan (index 0), '12' is Dec (index 11)
+      const monthIndex = parseInt(v.startDate.split('-')[1]) - 1;
+      const month = months[monthIndex];
+      if (month) {
+        monthCounts[month] = (monthCounts[month] || 0) + v.days;
+      }
     });
 
     return months.map(m => ({ name: m, value: monthCounts[m] || 0 }));
-  }, [filteredVacations]);
+  }, [filteredSickDays]);
 
-  const topVacationTakers = useMemo(() => {
+  const topSickLeaveTakers = useMemo(() => {
     const counts: Record<string, number> = {};
-    filteredVacations.forEach(v => {
+    filteredSickDays.forEach(v => {
        const empName = getEmployeeName(v.employeeId);
        counts[empName] = (counts[empName] || 0) + v.days;
     });
@@ -73,19 +76,19 @@ export const Vacations: React.FC = () => {
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 5);
-  }, [filteredVacations, employees]);
+  }, [filteredSickDays, employees]);
 
 
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">Vacation Tracker</h2>
-          <p className="text-slate-500 text-sm">Manage and track employee time off.</p>
+          <h2 className="text-2xl font-bold text-slate-800">Sick Tracker</h2>
+          <p className="text-slate-500 text-sm">Manage and track employee sick days.</p>
         </div>
         <div className="flex gap-2">
             <select
-                className="bg-white border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2.5"
+                className="bg-white border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-rose-500 focus:border-rose-500 block p-2.5"
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(Number(e.target.value))}
             >
@@ -95,9 +98,9 @@ export const Vacations: React.FC = () => {
             </select>
           <button
             onClick={handleAddNew}
-            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-200"
+            className="flex items-center gap-2 bg-rose-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-rose-700 transition-colors shadow-sm shadow-rose-200"
           >
-            <Plus size={16} /> Log Vacation
+            <Plus size={16} /> Log Sick Day
           </button>
         </div>
       </div>
@@ -105,36 +108,36 @@ export const Vacations: React.FC = () => {
       {/* Stats Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-          <h3 className="text-lg font-bold text-slate-800 mb-4">Vacations by Month</h3>
+          <h3 className="text-lg font-bold text-slate-800 mb-4">Sick Days by Month</h3>
            <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={vacationsByMonth}>
+              <BarChart data={sickDaysByMonth}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="name" tick={{ fontSize: 10 }} />
                 <YAxis allowDecimals={false} />
                 <Tooltip cursor={{ fill: '#f1f5f9' }} contentStyle={{ borderRadius: '12px', border: 'none' }} />
-                <Bar dataKey="value" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="value" fill="#f43f5e" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
-             {vacations.length === 0 && <p className="text-center text-slate-400 text-sm mt-2">No data yet</p>}
+             {filteredSickDays.length === 0 && <p className="text-center text-slate-400 text-sm mt-2">No data yet</p>}
           </div>
         </div>
 
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-          <h3 className="text-lg font-bold text-slate-800 mb-4">Top Vacation Takers (Days)</h3>
+          <h3 className="text-lg font-bold text-slate-800 mb-4">Top Sick Leave Takers (Days)</h3>
            <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={topVacationTakers} layout="vertical" margin={{ left: 20 }}>
+              <BarChart data={topSickLeaveTakers} layout="vertical" margin={{ left: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} />
                 <XAxis type="number" hide />
                 <YAxis dataKey="name" type="category" width={100} tick={{ fill: '#64748b', fontSize: 12 }} />
                  <Tooltip cursor={{ fill: '#f1f5f9' }} contentStyle={{ borderRadius: '12px', border: 'none' }} />
-                <Bar dataKey="value" fill="#ec4899" radius={[0, 4, 4, 0]}>
+                <Bar dataKey="value" fill="#fbbf24" radius={[0, 4, 4, 0]}>
                     <LabelList dataKey="value" position="right" fill="#64748b" />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
-            {vacations.length === 0 && <p className="text-center text-slate-400 text-sm mt-2">No data yet</p>}
+            {filteredSickDays.length === 0 && <p className="text-center text-slate-400 text-sm mt-2">No data yet</p>}
           </div>
         </div>
       </div>
@@ -148,7 +151,7 @@ export const Vacations: React.FC = () => {
               <input
                 type="text"
                 placeholder="Search employee..."
-                className="w-full pl-10 pr-4 py-2 bg-white text-slate-900 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm transition-all placeholder-slate-400"
+                className="w-full pl-10 pr-4 py-2 bg-white text-slate-900 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 shadow-sm transition-all placeholder-slate-400"
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
               />
@@ -161,26 +164,16 @@ export const Vacations: React.FC = () => {
                 <th className="px-6 py-4">Employee</th>
                 <th className="px-6 py-4">Dates</th>
                 <th className="px-6 py-4">Days</th>
-                <th className="px-6 py-4">Type</th>
                 <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredVacations.map((v) => (
+              {filteredSickDays.map((v) => (
                 <tr key={v.id} className="hover:bg-slate-50 transition-colors">
                   <td className="px-6 py-4 font-medium text-slate-800">{getEmployeeName(v.employeeId)}</td>
                   <td className="px-6 py-4 text-slate-500">{v.startDate} <span className="text-slate-300">→</span> {v.endDate}</td>
                   <td className="px-6 py-4 text-slate-800 font-bold">{v.days}</td>
-                  <td className="px-6 py-4">
-                     <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium border w-fit
-                        ${v.type === 'Sick' ? 'bg-rose-50 text-rose-700 border-rose-100' :
-                          v.type === 'Vacation' ? 'bg-blue-50 text-blue-700 border-blue-100' :
-                          'bg-slate-50 text-slate-700 border-slate-100'}
-                     `}>
-                        {v.type}
-                     </span>
-                  </td>
                   <td className="px-6 py-4">
                     <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium border w-fit
                         ${v.status === 'Approved' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
@@ -193,7 +186,7 @@ export const Vacations: React.FC = () => {
                   <td className="px-6 py-4 text-right">
                      <button
                         onClick={() => handleEdit(v.id)}
-                        className="p-2 hover:bg-white rounded-full text-slate-400 hover:text-indigo-600 hover:shadow-sm transition-all border border-transparent hover:border-slate-100 mr-1"
+                        className="p-2 hover:bg-white rounded-full text-slate-400 hover:text-rose-600 hover:shadow-sm transition-all border border-transparent hover:border-slate-100 mr-1"
                       >
                         <Edit size={16} />
                       </button>
@@ -206,10 +199,10 @@ export const Vacations: React.FC = () => {
                   </td>
                 </tr>
               ))}
-               {filteredVacations.length === 0 && (
+               {filteredSickDays.length === 0 && (
                 <tr>
-                  <td className="px-6 py-6 text-center text-slate-400" colSpan={6}>
-                    No vacation records found.
+                  <td className="px-6 py-6 text-center text-slate-400" colSpan={5}>
+                    No sick day records found.
                   </td>
                 </tr>
               )}
@@ -219,7 +212,7 @@ export const Vacations: React.FC = () => {
       </div>
 
       {(isAdding || editingId) && (
-        <VacationModal
+        <SickModal
           vacation={editingId ? vacations.find(v => v.id === editingId) : undefined}
           onClose={handleCloseModal}
           onSave={(v) => {
@@ -234,21 +227,21 @@ export const Vacations: React.FC = () => {
   );
 };
 
-interface VacationModalProps {
+interface SickModalProps {
   vacation?: Vacation;
   onClose: () => void;
   onSave: (v: Vacation) => void;
   employees: Employee[];
 }
 
-const VacationModal: React.FC<VacationModalProps> = ({ vacation, onClose, onSave, employees }) => {
+const SickModal: React.FC<SickModalProps> = ({ vacation, onClose, onSave, employees }) => {
     const [formData, setFormData] = useState<Partial<Vacation>>(vacation || {
         employeeId: '',
         startDate: new Date().toISOString().split('T')[0],
         endDate: new Date().toISOString().split('T')[0],
         days: 1,
-        type: 'Vacation',
-        status: 'Pending',
+        type: 'Sick', // Default to Sick
+        status: 'Approved', // Sick days usually just logged, default to Approved
         notes: ''
     });
 
@@ -281,7 +274,7 @@ const VacationModal: React.FC<VacationModalProps> = ({ vacation, onClose, onSave
             startDate: formData.startDate!,
             endDate: formData.endDate!,
             days: Number(formData.days) || 0,
-            type: (formData.type as any) || 'Vacation',
+            type: 'Sick', // Enforce Sick type
             status: (formData.status as any) || 'Pending',
             notes: formData.notes
         });
@@ -291,7 +284,7 @@ const VacationModal: React.FC<VacationModalProps> = ({ vacation, onClose, onSave
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg animate-fade-in-up">
             <div className="flex justify-between items-center p-6 border-b border-slate-100">
-            <h3 className="text-xl font-bold text-slate-800">{vacation ? 'Edit Vacation' : 'Log Vacation'}</h3>
+            <h3 className="text-xl font-bold text-slate-800">{vacation ? 'Edit Sick Record' : 'Log Sick Day'}</h3>
             <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-2 hover:bg-slate-100 rounded-full transition-colors">
                 <X size={20} />
             </button>
@@ -304,7 +297,7 @@ const VacationModal: React.FC<VacationModalProps> = ({ vacation, onClose, onSave
                         name="employeeId"
                         value={formData.employeeId}
                         onChange={handleChange}
-                         className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none appearance-none"
+                         className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-rose-500 outline-none appearance-none"
                     >
                         <option value="">Select Employee</option>
                         {employees.map(e => (
@@ -320,7 +313,7 @@ const VacationModal: React.FC<VacationModalProps> = ({ vacation, onClose, onSave
                             name="startDate"
                             value={formData.startDate}
                             onChange={handleDateChange}
-                            className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                            className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-rose-500 outline-none"
                         />
                     </div>
                     <div>
@@ -330,7 +323,7 @@ const VacationModal: React.FC<VacationModalProps> = ({ vacation, onClose, onSave
                             name="endDate"
                             value={formData.endDate}
                             onChange={handleDateChange}
-                            className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                            className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-rose-500 outline-none"
                         />
                     </div>
                 </div>
@@ -341,37 +334,21 @@ const VacationModal: React.FC<VacationModalProps> = ({ vacation, onClose, onSave
                         name="days"
                         value={formData.days}
                         onChange={handleChange}
-                        className="w-full bg-slate-50 text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                        className="w-full bg-slate-50 text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-rose-500 outline-none"
                     />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                     <div>
-                        <label className="block text-xs font-medium text-slate-500 mb-1">Type</label>
-                        <select
-                            name="type"
-                            value={formData.type}
-                            onChange={handleChange}
-                            className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none appearance-none"
-                        >
-                            <option value="Vacation">Vacation</option>
-                            <option value="Sick">Sick</option>
-                            <option value="Personal">Personal</option>
-                             <option value="Other">Other</option>
-                        </select>
-                    </div>
-                     <div>
-                        <label className="block text-xs font-medium text-slate-500 mb-1">Status</label>
-                        <select
-                            name="status"
-                            value={formData.status}
-                            onChange={handleChange}
-                            className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none appearance-none"
-                        >
-                            <option value="Pending">Pending</option>
-                            <option value="Approved">Approved</option>
-                            <option value="Rejected">Rejected</option>
-                        </select>
-                    </div>
+                <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">Status</label>
+                    <select
+                        name="status"
+                        value={formData.status}
+                        onChange={handleChange}
+                        className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-rose-500 outline-none appearance-none"
+                    >
+                        <option value="Pending">Pending</option>
+                        <option value="Approved">Approved</option>
+                        <option value="Rejected">Rejected</option>
+                    </select>
                 </div>
                  <div>
                     <label className="block text-xs font-medium text-slate-500 mb-1">Notes</label>
@@ -379,7 +356,7 @@ const VacationModal: React.FC<VacationModalProps> = ({ vacation, onClose, onSave
                         name="notes"
                         value={formData.notes || ''}
                         onChange={handleChange}
-                        className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none h-20 resize-none"
+                        className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-rose-500 outline-none h-20 resize-none"
                     />
                 </div>
 
@@ -394,7 +371,7 @@ const VacationModal: React.FC<VacationModalProps> = ({ vacation, onClose, onSave
                 </button>
                 <button
                     onClick={handleSubmit}
-                    className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-sm"
+                    className="px-4 py-2 text-sm font-medium text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors shadow-sm"
                 >
                     Save Record
                 </button>
