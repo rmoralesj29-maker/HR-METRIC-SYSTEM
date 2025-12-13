@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 import { Employee, DEFAULT_SETTINGS } from '../types';
 import { enrichEmployee } from './experience';
 import { supabase } from './supabaseClient';
+import { INITIAL_EMPLOYEES } from './initialData';
 
 interface EmployeeStore {
   employees: Employee[];
@@ -72,7 +73,30 @@ export const EmployeeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (error) {
         console.error('Error fetching employees:', error);
       } else if (data) {
-        setEmployees(data.map(mapDbToEmployee));
+        if (data.length === 0) {
+          // Database is empty, try to seed
+          console.log('Database empty, seeding initial data...');
+          const dbRecords = INITIAL_EMPLOYEES.map((emp) => {
+            const { id, ...rest } = mapEmployeeToDb(emp);
+            // Remove ID to let DB generate it, or keep it if UUIDs are valid
+            return rest;
+          });
+
+          const { data: inserted, error: insertError } = await supabase
+            .from('employees')
+            .insert(dbRecords)
+            .select();
+
+          if (insertError) {
+            console.error('Error seeding data:', insertError);
+            setEmployees([]);
+          } else if (inserted) {
+            console.log('Seeded data successfully:', inserted.length);
+            setEmployees(inserted.map(mapDbToEmployee));
+          }
+        } else {
+          setEmployees(data.map(mapDbToEmployee));
+        }
       }
     } catch (err) {
       console.error('Unexpected error loading employees:', err);
