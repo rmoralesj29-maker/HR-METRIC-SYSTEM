@@ -72,34 +72,101 @@ export const EmployeeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const { data, error } = await supabase.from('employees').select('*');
       if (error) {
         console.error('Error fetching employees:', error);
+        // Fallback: load initial data so UI isn't empty
+        console.warn('Fallback: Loading initial data due to DB error.');
+        const validEmployees = INITIAL_EMPLOYEES.filter(e => {
+             if (!e.firstName || !e.lastName) {
+                 console.warn('Skipping invalid employee in fallback:', e);
+                 return false;
+             }
+             return true;
+        });
+        console.log(`Loaded ${validEmployees.length} employees from authoritative source (Fallback mode).`);
+        setEmployees(validEmployees.map(e => enrichEmployee(e, DEFAULT_SETTINGS)));
       } else if (data) {
-        if (data.length === 0) {
-          // Database is empty, try to seed
-          console.log('Database empty, seeding initial data...');
-          const dbRecords = INITIAL_EMPLOYEES.map((emp) => {
-            const { id, ...rest } = mapEmployeeToDb(emp);
-            // Remove ID to let DB generate it, or keep it if UUIDs are valid
-            return rest;
-          });
+        // Prepare for sync: "Insert or upsert all employees"
+        const existingEmployees = data.map(mapDbToEmployee);
+        const updates: any[] = [];
+        const inserts: any[] = [];
+        let insertedCount = 0;
+        let updatedCount = 0;
 
-          const { data: inserted, error: insertError } = await supabase
+        for (const initialEmp of INITIAL_EMPLOYEES) {
+          // Validate: check for missing name
+          if (!initialEmp.firstName || !initialEmp.lastName) {
+            console.warn('Skipping employee with missing name:', initialEmp);
+            continue;
+          }
+
+          const match = existingEmployees.find(
+            (e) =>
+              e.firstName.toLowerCase() === initialEmp.firstName.toLowerCase() &&
+              e.lastName.toLowerCase() === initialEmp.lastName.toLowerCase()
+          );
+
+          const dbRecord = mapEmployeeToDb(initialEmp);
+          const { id: _, ...recordData } = dbRecord; // Remove placeholder ID
+
+          if (match) {
+            // Update existing
+            // Check if data is different? For now, we force upsert as requested "Insert or upsert all"
+            // We use the MATCH ID
+            updates.push({ ...recordData, id: match.id });
+          } else {
+            // Insert new
+            inserts.push(recordData);
+          }
+        }
+
+        // Perform inserts
+        if (inserts.length > 0) {
+          const { data: insertedData, error: insertError } = await supabase
             .from('employees')
-            .insert(dbRecords)
+            .insert(inserts)
             .select();
 
           if (insertError) {
-            console.error('Error seeding data:', insertError);
-            setEmployees([]);
-          } else if (inserted) {
-            console.log('Seeded data successfully:', inserted.length);
-            setEmployees(inserted.map(mapDbToEmployee));
+            console.error('Error inserting new employees:', insertError);
+          } else if (insertedData) {
+            insertedCount = insertedData.length;
+          }
+        }
+
+        // Perform updates
+        // Supabase upsert can work if we provide ID.
+        // We can do bulk upsert if we have IDs.
+        if (updates.length > 0) {
+          const { data: updatedData, error: updateError } = await supabase
+            .from('employees')
+            .upsert(updates) // Upsert uses primary key (id) to update
+            .select();
+
+          if (updateError) {
+            console.error('Error updating existing employees:', updateError);
+          } else if (updatedData) {
+            updatedCount = updatedData.length;
+          }
+        }
+
+        if (insertedCount > 0 || updatedCount > 0) {
+          console.log(`Sync complete. Inserted: ${insertedCount}, Updated: ${updatedCount}`);
+          // Reload to get fresh state
+          const { data: refreshedData } = await supabase.from('employees').select('*');
+          if (refreshedData) {
+            setEmployees(refreshedData.map(mapDbToEmployee));
           }
         } else {
-          setEmployees(data.map(mapDbToEmployee));
+            setEmployees(existingEmployees);
         }
+      } else {
+        // Fallback for when Supabase fails (e.g. no connection), maybe use local storage or just memory
+        console.warn('Could not fetch from Supabase. Using INITIAL_EMPLOYEES directly if empty.');
+        setEmployees(INITIAL_EMPLOYEES.map(e => enrichEmployee(e, DEFAULT_SETTINGS)));
       }
     } catch (err) {
       console.error('Unexpected error loading employees:', err);
+      // Fallback in case of error
+      setEmployees(INITIAL_EMPLOYEES.map(e => enrichEmployee(e, DEFAULT_SETTINGS)));
     } finally {
       setIsLoading(false);
     }
