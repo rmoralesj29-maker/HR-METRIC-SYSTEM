@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { EmployeeProvider } from './utils/employeeStore';
+import { ToastProvider } from './utils/ToastContext';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -11,8 +12,10 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <EmployeeProvider>
-      <App />
-    </EmployeeProvider>
+    <ToastProvider>
+      <EmployeeProvider>
+        <App />
+      </EmployeeProvider>
+    </ToastProvider>
   </React.StrictMode>
 );
