@@ -22,6 +22,7 @@ export const SickTracker: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [dateRange, setDateRange] = useState<{ start: string; end: string }>({ start: '', end: '' });
 
   const handleAddNew = () => setIsAdding(true);
   const handleEdit = (id: string) => setEditingId(id);
@@ -40,9 +41,16 @@ export const SickTracker: React.FC = () => {
       const isSick = v.type === 'Sick';
       const empName = getEmployeeName(v.employeeId).toLowerCase();
       const matchesSearch = empName.includes(filter.toLowerCase());
-      // Use string splitting for safer year extraction (YYYY-MM-DD)
-      const matchesYear = parseInt(v.startDate.split('-')[0]) === selectedYear;
-      return isSick && matchesSearch && matchesYear;
+
+      let matchesDate = true;
+      if (dateRange.start && dateRange.end) {
+        matchesDate = v.startDate >= dateRange.start && v.startDate <= dateRange.end;
+      } else {
+         // Use string splitting for safer year extraction (YYYY-MM-DD)
+         matchesDate = parseInt(v.startDate.split('-')[0]) === selectedYear;
+      }
+
+      return isSick && matchesSearch && matchesDate;
     })
     .sort((a, b) => b.startDate.localeCompare(a.startDate));
 
@@ -86,16 +94,46 @@ export const SickTracker: React.FC = () => {
           <h2 className="text-2xl font-bold text-slate-800">Sick Tracker</h2>
           <p className="text-slate-500 text-sm">Manage and track employee sick days.</p>
         </div>
-        <div className="flex gap-2">
-            <select
-                className="bg-white border border-slate-200 text-slate-700 text-sm rounded-lg focus:ring-rose-500 focus:border-rose-500 block p-2.5"
-                value={selectedYear}
-                onChange={(e) => setSelectedYear(Number(e.target.value))}
-            >
-                <option value={2025}>2025</option>
-                <option value={2026}>2026</option>
-                <option value={2027}>2027</option>
-            </select>
+        <div className="flex flex-wrap gap-2 items-center">
+             {/* Simple toggle or just inputs. Let's show inputs if they want custom range */}
+            <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg p-1">
+                {!dateRange.start ? (
+                    <select
+                        className="bg-transparent text-slate-700 text-sm focus:ring-0 border-none py-1.5 pl-2 pr-8 cursor-pointer"
+                        value={selectedYear}
+                        onChange={(e) => setSelectedYear(Number(e.target.value))}
+                    >
+                        <option value={2024}>2024</option>
+                        <option value={2025}>2025</option>
+                        <option value={2026}>2026</option>
+                        <option value={2027}>2027</option>
+                    </select>
+                ) : (
+                    <span className="text-xs font-medium text-slate-500 px-2 uppercase tracking-wider">Custom Range</span>
+                )}
+                <div className="w-px h-4 bg-slate-200 mx-1"></div>
+                <input
+                    type="date"
+                    className="text-sm border-none focus:ring-0 text-slate-600 bg-transparent w-32 p-1"
+                    placeholder="Start"
+                    value={dateRange.start}
+                    onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+                />
+                <span className="text-slate-300">→</span>
+                <input
+                    type="date"
+                    className="text-sm border-none focus:ring-0 text-slate-600 bg-transparent w-32 p-1"
+                    placeholder="End"
+                    value={dateRange.end}
+                    onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+                />
+                 {(dateRange.start || dateRange.end) && (
+                    <button onClick={() => setDateRange({ start: '', end: '' })} className="text-slate-400 hover:text-rose-500 p-1">
+                        <X size={14} />
+                    </button>
+                 )}
+            </div>
+
           <button
             onClick={handleAddNew}
             className="flex items-center gap-2 bg-rose-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-rose-700 transition-colors shadow-sm shadow-rose-200"

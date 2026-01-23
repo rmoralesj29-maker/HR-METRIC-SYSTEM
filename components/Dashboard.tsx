@@ -17,13 +17,14 @@ import {
   LabelList,
 } from 'recharts';
 import { StatCard } from './ui/StatCard';
-import { Users, AlertCircle, Clock, Thermometer } from 'lucide-react';
+import { Users, Clock, Thermometer } from 'lucide-react';
 import { getDashboardStats } from '../utils/dashboardStats';
+import { useGlobalContext } from '../utils/GlobalContext';
+import { DrillDownModal } from './DrillDownModal';
 
 interface DashboardProps {
   employees: Employee[];
   settings: SystemSettings;
-  onAlertClick?: () => void;
 }
 
 const COLORS = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ef4444', '#14b8a6'];
@@ -34,12 +35,54 @@ const GENDER_COLORS: Record<string, string> = {
 };
 const DEFAULT_GENDER_COLOR = '#94a3b8';
 
-export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings, onAlertClick }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings }) => {
+  const { asOfDate } = useGlobalContext();
+  const [drillDownConfig, setDrillDownConfig] = React.useState<{ title: string; employees: Employee[] } | null>(null);
   const stats = useMemo(() => getDashboardStats(employees, settings), [employees, settings]);
+
+  const handleDrillDown = (type: string, data: any) => {
+    if (!data) return;
+    const name = data.name || data.payload?.name;
+    if (!name) return;
+
+    let filtered: Employee[] = [];
+
+    if (type === 'VR Rate') {
+      filtered = employees.filter((e) => (e.statusVR || 'VR0') === name);
+    } else if (type === 'Age Group') {
+      filtered = employees.filter((e) => {
+        const age = e.age || 0;
+        if (name === '<22') return age < 22;
+        if (name === '22-29') return age >= 22 && age <= 29;
+        if (name === '30-39') return age >= 30 && age <= 39;
+        if (name === '40-49') return age >= 40 && age <= 49;
+        if (name === '50+') return age >= 50;
+        return false;
+      });
+    } else if (type === 'Tenure') {
+      filtered = employees.filter((e) => {
+        const tenure = e.totalExperienceMonths || 0;
+        if (name === '<6m') return tenure < 6;
+        if (name === '6m-1y') return tenure >= 6 && tenure < 12;
+        if (name === '1y-2y') return tenure >= 12 && tenure < 24;
+        if (name === '2y-3y') return tenure >= 24 && tenure < 36;
+        if (name === '3y+') return tenure >= 36;
+        return false;
+      });
+    } else if (type === 'Gender') {
+      filtered = employees.filter((e) => (e.gender || 'Other') === name);
+    } else if (type === 'Language') {
+       filtered = employees.filter(e => e.languages && e.languages.includes(name));
+    } else if (type === 'Country') {
+       filtered = employees.filter(e => (e.country || 'Unknown') === name);
+    }
+
+    setDrillDownConfig({ title: `${type}: ${name}`, employees: filtered });
+  };
 
   const vrData = useMemo(
     () =>
-      ['VR0', 'VR1', 'VR2', 'VR3', 'VR4'].map((status) => ({
+      ['VR0', 'VR1', 'VR2', 'VR3', 'VR4', 'VR5'].map((status) => ({
         name: status,
         value: stats.vrDistribution[status] || 0,
       })),
@@ -87,9 +130,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings, 
     return Object.entries(genderDist).map(([name, value]) => ({ name, value }));
   }, [employees]);
 
-  const currentYear = 2025;
+  const currentYear = asOfDate.getFullYear();
+  // Fallback to 2025 or empty if year not found, but we want to show empty graph rather than crash
   const monthlySickDays =
-    settings.sickDaysByYear[currentYear] || DEFAULT_SETTINGS.sickDaysByYear[currentYear] || [];
+    settings.sickDaysByYear[currentYear] || [];
 
   const totalSickDaysYTD = monthlySickDays.reduce((acc, curr) => acc + (Number(curr.value) || 0), 0);
   const calculatedAvgSickDays = stats.totalEmployees > 0 ? (totalSickDaysYTD / stats.totalEmployees).toFixed(1) : 0;
@@ -115,17 +159,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings, 
   return (
     <div className="space-y-6">
       {/* Top Stat Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <StatCard icon={<Users className="text-white" size={24} />} title="Total Employees" value={stats.totalEmployees} color="bg-indigo-500" />
-        <StatCard
-          icon={<AlertCircle className="text-white" size={24} />}
-          title="Raise Due"
-          value={stats.raiseDue}
-          subValue="Action Required"
-          color="bg-amber-500"
-          onClick={onAlertClick}
-          className="cursor-pointer hover:shadow-lg transition-shadow"
-        />
         <StatCard
           icon={<Thermometer className="text-white" size={24} />}
           title="Avg Sick Days"
@@ -155,7 +190,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings, 
                   cursor={{ fill: '#f1f5f9' }}
                   contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                 />
-                <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                <Bar dataKey="value" radius={[0, 4, 4, 0]} onClick={(data) => handleDrillDown('VR Rate', data)} style={{ cursor: 'pointer' }}>
                   {vrData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
@@ -200,7 +235,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings, 
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={ageDist} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                <Pie data={ageDist} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value" onClick={(data) => handleDrillDown('Age Group', data)} style={{ cursor: 'pointer' }}>
                   {ageDist.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
@@ -222,7 +257,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings, 
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="name" tick={{ fontSize: 10 }} />
                 <Tooltip />
-                <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} onClick={(data) => handleDrillDown('Tenure', data)} style={{ cursor: 'pointer' }} />
               </BarChart>
             </ResponsiveContainer>
             {stats.totalEmployees === 0 && <p className="text-center text-slate-400 text-sm mt-2">No data yet</p>}
@@ -243,6 +278,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings, 
                   fill="#8884d8"
                   dataKey="value"
                   label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  onClick={(data) => handleDrillDown('Gender', data)}
+                  style={{ cursor: 'pointer' }}
                 >
                   {genderData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={GENDER_COLORS[entry.name] || DEFAULT_GENDER_COLOR} />
@@ -270,7 +307,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings, 
                   cursor={{ fill: '#f1f5f9' }}
                   contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                 />
-                <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                <Bar dataKey="value" radius={[0, 4, 4, 0]} onClick={(data) => handleDrillDown('Language', data)} style={{ cursor: 'pointer' }}>
                   {languageData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
@@ -300,7 +337,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings, 
                   cursor={{ fill: '#f1f5f9' }}
                   contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                 />
-                <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                <Bar dataKey="value" radius={[0, 4, 4, 0]} onClick={(data) => handleDrillDown('Country', data)} style={{ cursor: 'pointer' }}>
                   {countryData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
@@ -311,6 +348,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings, 
             {stats.totalEmployees === 0 && <p className="text-center text-slate-400 text-sm mt-2">No data yet</p>}
           </div>
         </div>
+      )}
+
+      {drillDownConfig && (
+        <DrillDownModal
+          title={drillDownConfig.title}
+          employees={drillDownConfig.employees}
+          onClose={() => setDrillDownConfig(null)}
+        />
       )}
     </div>
   );

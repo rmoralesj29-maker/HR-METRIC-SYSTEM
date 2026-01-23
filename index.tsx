@@ -2,7 +2,10 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { EmployeeProvider } from './utils/employeeStore';
+import { SettingsProvider } from './utils/settingsStore';
+import { VacationProvider } from './utils/vacationStore';
 import { ToastProvider } from './utils/ToastContext';
+import { GlobalProvider } from './utils/GlobalContext';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -13,9 +16,15 @@ const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
     <ToastProvider>
-      <EmployeeProvider>
-        <App />
-      </EmployeeProvider>
+      <SettingsProvider>
+        <GlobalProvider>
+          <EmployeeProvider>
+            <VacationProvider>
+              <App />
+            </VacationProvider>
+          </EmployeeProvider>
+        </GlobalProvider>
+      </SettingsProvider>
     </ToastProvider>
   </React.StrictMode>
 );

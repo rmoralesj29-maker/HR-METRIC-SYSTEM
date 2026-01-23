@@ -1,5 +1,4 @@
 import { Employee, SystemSettings } from '../types';
-import { enrichEmployee } from './experience';
 
 export interface DashboardStats {
   totalEmployees: number;
@@ -9,7 +8,6 @@ export interface DashboardStats {
   vrDistribution: Record<string, number>;
   ageBuckets: Record<string, number>;
   performanceDistribution: Record<number, number>;
-  raiseDue: number;
   languageDistribution: Record<string, number>;
 }
 
@@ -20,15 +18,15 @@ export const getDashboardStats = (employees: Employee[], settings: SystemSetting
       averageAge: 0,
       averageTotalExperienceMonths: 0,
       averageSickDays: 0,
-      vrDistribution: { VR0: 0, VR1: 0, VR2: 0, VR3: 0, VR4: 0 },
+      vrDistribution: { VR0: 0, VR1: 0, VR2: 0, VR3: 0, VR4: 0, VR5: 0 },
       ageBuckets: { '<22': 0, '22-29': 0, '30-39': 0, '40-49': 0, '50+': 0 },
       performanceDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
-      raiseDue: 0,
       languageDistribution: {},
     };
   }
 
-  const enriched = employees.map((emp) => enrichEmployee(emp, settings));
+  // Employees are assumed to be already enriched by App.tsx
+  const enriched = employees;
   const totalEmployees = enriched.length;
 
   const sumAge = enriched.reduce((sum, emp) => sum + (emp.age || 0), 0);
@@ -37,14 +35,17 @@ export const getDashboardStats = (employees: Employee[], settings: SystemSetting
   const sumExperience = enriched.reduce((sum, emp) => sum + (emp.totalExperienceMonths || 0), 0);
   const averageTotalExperienceMonths = Number((sumExperience / totalEmployees).toFixed(1));
 
-  const sumSickDays = enriched.reduce((sum, emp) => sum + (emp.sickDaysYTD || 0), 0);
-  const averageSickDays = Number((sumSickDays / totalEmployees).toFixed(1));
+  // Calculate Average Sick Days (Global Total / Total Employees)
+  const currentYear = new Date().getFullYear();
+  const yearData = settings.sickDaysByYear?.[currentYear] || [];
+  const totalSickDays = yearData.reduce((sum, m) => sum + m.value, 0);
+  const averageSickDays = Number((totalSickDays / totalEmployees).toFixed(1));
 
   const vrDistribution = enriched.reduce((acc, emp) => {
     const key = emp.statusVR || 'VR0';
     acc[key] = (acc[key] || 0) + 1;
     return acc;
-  }, { VR0: 0, VR1: 0, VR2: 0, VR3: 0, VR4: 0 } as Record<string, number>);
+  }, { VR0: 0, VR1: 0, VR2: 0, VR3: 0, VR4: 0, VR5: 0 } as Record<string, number>);
 
   const ageBuckets = enriched.reduce(
     (acc, emp) => {
@@ -68,7 +69,7 @@ export const getDashboardStats = (employees: Employee[], settings: SystemSetting
     { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } as Record<number, number>
   );
 
-  const raiseDue = enriched.filter((emp) => emp.inRaiseWindow).length;
+  // raiseDue removed
 
   const languageDistribution = enriched.reduce((acc, emp) => {
     if (emp.languages && Array.isArray(emp.languages)) {
@@ -90,7 +91,6 @@ export const getDashboardStats = (employees: Employee[], settings: SystemSetting
     vrDistribution,
     ageBuckets,
     performanceDistribution,
-    raiseDue,
     languageDistribution,
   };
 };
