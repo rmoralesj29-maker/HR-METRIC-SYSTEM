@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Employee, ColumnDefinition } from '../types';
 import { Edit, AlertCircle, Plus, X, Save, Trash2, Search, Info, Calendar } from 'lucide-react';
 import { formatEmployeeName } from '../utils/experience';
+import { LanguageInput } from './LanguageInput';
 
 interface EmployeeListProps {
   employees: Employee[];
@@ -17,7 +18,6 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({ employees, columns, 
   const [isAdding, setIsAdding] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [raiseInfoEmp, setRaiseInfoEmp] = useState<Employee | null>(null);
 
   const filteredEmployees = employees
     .filter((e) => {
@@ -53,10 +53,8 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({ employees, columns, 
     statusVR: 'VR0',
     dateOfBirth: '',
     startDate: new Date().toISOString().split('T')[0],
-    previousExperienceMonths: 0,
     totalExperienceMonths: 0,
     monthsToNextRaise: null,
-    sickDaysYTD: 0,
     performanceRating: 3,
     languages: [],
     customFields: {},
@@ -176,15 +174,6 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({ employees, columns, 
                     ))}
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      {employee.inRaiseWindow && (
-                        <button
-                          onClick={() => setRaiseInfoEmp(employee)}
-                          className="p-2 bg-amber-50 text-amber-600 rounded-full hover:bg-amber-100 transition-colors mr-2"
-                          title="Raise Due!"
-                        >
-                          <AlertCircle size={16} />
-                        </button>
-                      )}
                       <button
                         onClick={() => handleEditClick(employee.id)}
                         className="p-2 hover:bg-white rounded-full text-slate-400 hover:text-indigo-600 hover:shadow-sm transition-all border border-transparent hover:border-slate-100"
@@ -276,60 +265,6 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({ employees, columns, 
           </div>
         </div>
       )}
-
-      {raiseInfoEmp && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-fade-in-up p-6">
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="bg-amber-100 p-2 rounded-full text-amber-600">
-                  <AlertCircle size={24} />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-slate-800">Raise Action Required</h3>
-                  <p className="text-sm text-slate-500">{formatEmployeeName(raiseInfoEmp)}</p>
-                </div>
-              </div>
-              <button onClick={() => setRaiseInfoEmp(null)} className="text-slate-400 hover:text-slate-600">
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="space-y-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-500">Current Tenure:</span>
-                <span className="font-bold text-slate-800">{raiseInfoEmp.totalExperienceMonths} Months</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-500">Current Rate:</span>
-                <span className="font-bold text-slate-800">{raiseInfoEmp.statusVR}</span>
-              </div>
-              <div className="border-t border-slate-200 pt-2 mt-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-500">Next Milestone:</span>
-                  <span className="font-bold text-indigo-600">
-                    {raiseInfoEmp.monthsToNextRaise !== null
-                      ? `${raiseInfoEmp.totalExperienceMonths + raiseInfoEmp.monthsToNextRaise} Month Mark`
-                      : 'Top Band'}
-                  </span>
-                </div>
-                <p className="text-xs text-slate-400 mt-2">
-                  This employee is within the raise window. Please review and process.
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-6 flex justify-end">
-              <button
-                onClick={() => setRaiseInfoEmp(null)}
-                className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors"
-              >
-                Acknowledge
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 };
@@ -346,40 +281,12 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ employee, columns
   const [formData, setFormData] = useState<Employee>({ ...employee });
   const [error, setError] = useState<string | null>(null);
 
-  const commonLanguages = [
-    'English',
-    'Spanish',
-    'French',
-    'German',
-    'Chinese',
-    'Japanese',
-    'Arabic',
-    'Hindi',
-    'Portuguese',
-    'Russian',
-  ];
-
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]:
-        name === 'previousExperienceMonths' || name === 'sickDaysYTD' || name === 'performanceRating'
-          ? Number(value)
-          : value,
+      [name]: name === 'performanceRating' ? Number(value) : value,
     }));
-  };
-
-  const handleLanguageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData((prev) => ({ ...prev, languages: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) }));
-  };
-
-  const handleAddLanguage = (lang: string) => {
-    if (!lang) return;
-    const current = formData.languages.map((l) => l.trim()).filter(Boolean);
-    if (!current.includes(lang)) {
-      setFormData((prev) => ({ ...prev, languages: [...current, lang] }));
-    }
   };
 
   const handleCustomChange = (colId: string, value: string) => {
@@ -400,8 +307,6 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ employee, columns
 
     const cleaned: Employee = {
       ...formData,
-      previousExperienceMonths: Number(formData.previousExperienceMonths) || 0,
-      sickDaysYTD: Number(formData.sickDaysYTD) || 0,
       performanceRating: Math.min(5, Math.max(1, Number(formData.performanceRating) || 1)),
       monthsToNextRaise: formData.monthsToNextRaise ?? null,
       totalExperienceMonths: formData.totalExperienceMonths || 0,
@@ -444,10 +349,11 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ employee, columns
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1 flex items-center gap-1">
+                <label htmlFor="dateOfBirth" className="block text-xs font-medium text-slate-500 mb-1 flex items-center gap-1">
                   <Calendar size={10} /> Date of Birth
                 </label>
                 <input
+                  id="dateOfBirth"
                   type="date"
                   name="dateOfBirth"
                   value={formData.dateOfBirth}
@@ -456,8 +362,9 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ employee, columns
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Gender</label>
+                <label htmlFor="gender" className="block text-xs font-medium text-slate-500 mb-1">Gender</label>
                 <select
+                  id="gender"
                   name="gender"
                   value={formData.gender}
                   onChange={handleChange}
@@ -469,8 +376,9 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ employee, columns
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Country</label>
+                <label htmlFor="country" className="block text-xs font-medium text-slate-500 mb-1">Country</label>
                 <input
+                  id="country"
                   name="country"
                   value={formData.country}
                   onChange={handleChange}
@@ -484,8 +392,9 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ employee, columns
             <h4 className="text-sm font-semibold text-slate-900 mb-3 uppercase tracking-wider border-t border-slate-100 pt-4">Role & Employment</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Job Role</label>
+                <label htmlFor="role" className="block text-xs font-medium text-slate-500 mb-1">Job Role</label>
                 <select
+                  id="role"
                   name="role"
                   value={formData.role}
                   onChange={handleChange}
@@ -498,10 +407,11 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ employee, columns
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1 flex items-center gap-1">
+                <label htmlFor="startDate" className="block text-xs font-medium text-slate-500 mb-1 flex items-center gap-1">
                   <Calendar size={10} /> Start Date
                 </label>
                 <input
+                  id="startDate"
                   type="date"
                   name="startDate"
                   value={formData.startDate}
@@ -510,18 +420,26 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ employee, columns
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Previous Experience (Months)</label>
-                <input
-                  type="number"
-                  name="previousExperienceMonths"
-                  value={formData.previousExperienceMonths}
+                <label htmlFor="statusVR" className="block text-xs font-medium text-slate-500 mb-1">VR Status</label>
+                <select
+                  id="statusVR"
+                  name="statusVR"
+                  value={formData.statusVR}
                   onChange={handleChange}
-                  className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-400"
-                />
+                  className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none appearance-none"
+                >
+                  <option value="VR0">VR0</option>
+                  <option value="VR1">VR1</option>
+                  <option value="VR2">VR2</option>
+                  <option value="VR3">VR3</option>
+                  <option value="VR4">VR4</option>
+                  <option value="VR5">VR5</option>
+                </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Performance Rating (1-5)</label>
+                <label htmlFor="performanceRating" className="block text-xs font-medium text-slate-500 mb-1">Performance Rating (1-5)</label>
                 <input
+                  id="performanceRating"
                   type="number"
                   min={1}
                   max={5}
@@ -531,42 +449,12 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ employee, columns
                   className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-400"
                 />
               </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Sick Days YTD</label>
-                <input
-                  type="number"
-                  min={0}
-                  name="sickDaysYTD"
-                  value={formData.sickDaysYTD}
-                  onChange={handleChange}
-                  className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-400"
-                />
-              </div>
               <div className="col-span-1 md:col-span-2">
                 <label className="block text-xs font-medium text-slate-500 mb-1">Languages</label>
-                <div className="flex gap-2">
-                  <input
-                    name="languages"
-                    value={formData.languages.join(', ')}
-                    onChange={handleLanguageChange}
-                    className="flex-1 bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-400"
-                    placeholder="Type manually..."
-                  />
-                  <select
-                    onChange={(e) => {
-                      handleAddLanguage(e.target.value);
-                      e.target.value = '';
-                    }}
-                    className="w-40 bg-white text-slate-900 border border-slate-200 rounded-lg px-2 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                  >
-                    <option value="">+ Quick Add</option>
-                    {commonLanguages.map((l) => (
-                      <option key={l} value={l}>
-                        {l}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <LanguageInput
+                  value={formData.languages}
+                  onChange={(langs) => setFormData((prev) => ({ ...prev, languages: langs }))}
+                />
               </div>
             </div>
           </div>

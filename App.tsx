@@ -8,39 +8,15 @@ import { Vacations } from './components/Vacations';
 import { SickTracker } from './components/SickTracker';
 import { BirkirBot } from './components/BirkirBot';
 import { useEmployeeStore } from './utils/employeeStore';
-import { VacationProvider } from './utils/vacationStore';
+import { useSettingsStore } from './utils/settingsStore';
+import { useGlobalContext } from './utils/GlobalContext';
 import { enrichEmployee } from './utils/experience';
 
 const App: React.FC = () => {
   const { employees, addEmployee, updateEmployee, deleteEmployee } = useEmployeeStore();
+  const { settings: systemSettings, updateSettings: setSystemSettings } = useSettingsStore();
+  const { asOfDate, setAsOfDate } = useGlobalContext();
   const [activeTab, setActiveTab] = useState<'dashboard' | 'employees' | 'vacations' | 'sickTracker' | 'settings'>('employees');
-  const [showRaiseDueOnly, setShowRaiseDueOnly] = useState(false);
-
-  const [systemSettings, setSystemSettings] = useState<SystemSettings>(() => {
-    try {
-      const saved = localStorage.getItem('etrack_settings');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return {
-          ...DEFAULT_SETTINGS,
-          ...parsed,
-          vrThresholds: {
-            ...DEFAULT_SETTINGS.vrThresholds,
-            ...(parsed.vrThresholds || {}),
-          },
-          monthlySickDays: [],
-          sickDaysByYear: parsed.sickDaysByYear ||
-            (Array.isArray(parsed.monthlySickDays) && parsed.monthlySickDays.length > 0
-              ? { ...DEFAULT_SETTINGS.sickDaysByYear, 2025: parsed.monthlySickDays }
-              : DEFAULT_SETTINGS.sickDaysByYear),
-        };
-      }
-      return DEFAULT_SETTINGS;
-    } catch (error) {
-      console.error('Failed to load settings from local storage', error);
-      return DEFAULT_SETTINGS;
-    }
-  });
 
   const [customColumns, setCustomColumns] = useState<ColumnDefinition[]>(() => {
     try {
@@ -53,37 +29,19 @@ const App: React.FC = () => {
   });
 
   useEffect(() => {
-    localStorage.setItem('etrack_settings', JSON.stringify(systemSettings));
-  }, [systemSettings]);
-
-  useEffect(() => {
     localStorage.setItem('etrack_columns', JSON.stringify(customColumns));
   }, [customColumns]);
 
   const calculatedEmployees = useMemo(
-    () => employees.map((emp) => enrichEmployee(emp, systemSettings)),
-    [employees, systemSettings]
+    () => employees.map((emp) => enrichEmployee(emp, systemSettings, asOfDate)),
+    [employees, systemSettings, asOfDate]
   );
-
-  const displayedEmployees = useMemo(() => {
-    if (showRaiseDueOnly) {
-      return calculatedEmployees.filter((e) => e.inRaiseWindow);
-    }
-    return calculatedEmployees;
-  }, [calculatedEmployees, showRaiseDueOnly]);
-
-  const handleDashboardAlertClick = () => {
-    setShowRaiseDueOnly(true);
-    setActiveTab('employees');
-  };
 
   const handleTabChange = (tab: 'dashboard' | 'employees' | 'vacations' | 'sickTracker' | 'settings') => {
     setActiveTab(tab);
-    if (tab !== 'employees') setShowRaiseDueOnly(false);
   };
 
   return (
-    <VacationProvider>
     <div className="flex h-screen bg-slate-50 font-sans text-slate-900">
       {/* Sidebar */}
       <aside className="w-64 bg-white text-slate-600 flex flex-col shadow-xl z-10 hidden md:flex border-r border-slate-100">
@@ -186,14 +144,6 @@ const App: React.FC = () => {
             <div>
               <h1 className="text-3xl font-bold text-slate-900 capitalize flex items-center gap-3">
                 {activeTab}
-                {showRaiseDueOnly && activeTab === 'employees' && (
-                  <span className="text-sm font-medium bg-amber-100 text-amber-800 px-3 py-1 rounded-full flex items-center gap-2">
-                    Filtered: Raise Due
-                    <button onClick={() => setShowRaiseDueOnly(false)} className="hover:text-amber-950">
-                      <Users size={14} />
-                    </button>
-                  </span>
-                )}
               </h1>
               <p className="text-slate-500 mt-1">
                 {activeTab === 'dashboard'
@@ -206,19 +156,26 @@ const App: React.FC = () => {
               </p>
             </div>
             <div className="text-left md:text-right hidden sm:block">
-              <p className="text-sm font-medium text-slate-900">
-                {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-              </p>
+              <label htmlFor="asOfDate" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                As Of Date
+              </label>
+              <input
+                 id="asOfDate"
+                 type="date"
+                 value={asOfDate.toISOString().split('T')[0]}
+                 onChange={(e) => setAsOfDate(new Date(e.target.value))}
+                 className="bg-white border border-slate-200 text-slate-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5 outline-none shadow-sm"
+              />
             </div>
           </header>
 
           {activeTab === 'dashboard' && (
-            <Dashboard employees={calculatedEmployees} settings={systemSettings} onAlertClick={handleDashboardAlertClick} />
+            <Dashboard employees={calculatedEmployees} settings={systemSettings} />
           )}
 
           {activeTab === 'employees' && (
             <EmployeeList
-              employees={displayedEmployees}
+              employees={calculatedEmployees}
               columns={customColumns}
               onUpdate={updateEmployee}
               onAdd={addEmployee}
@@ -249,7 +206,6 @@ const App: React.FC = () => {
       {/* Birkir Chatbot */}
       <BirkirBot employees={calculatedEmployees} />
     </div>
-    </VacationProvider>
   );
 };
 

@@ -1,5 +1,5 @@
 export type Gender = 'Male' | 'Female' | 'Other' | string;
-export type StatusVR = 'VR0' | 'VR1' | 'VR2' | 'VR3' | 'VR4' | string;
+export type StatusVR = 'VR0' | 'VR1' | 'VR2' | 'VR3' | 'VR4' | 'VR5' | string;
 
 // Enum for backward compatibility if needed, though HEAD uses string
 export enum VRRate {
@@ -8,6 +8,7 @@ export enum VRRate {
   VR2 = 'VR2',
   VR3 = 'VR3',
   VR4 = 'VR4',
+  VR5 = 'VR5',
 }
 
 export interface Employee {
@@ -21,10 +22,10 @@ export interface Employee {
   statusVR: StatusVR;
   dateOfBirth: string; // ISO date string YYYY-MM-DD
   startDate: string; // ISO date string YYYY-MM-DD
-  previousExperienceMonths: number;
+  // previousExperienceMonths removed
   totalExperienceMonths: number;
   monthsToNextRaise: number | null;
-  sickDaysYTD: number;
+  // sickDaysYTD removed
   performanceRating: number; // 1-5
   languages: string[];
   customFields?: Record<string, string | number | null>;

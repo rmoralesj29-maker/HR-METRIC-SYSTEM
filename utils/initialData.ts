@@ -55,13 +55,11 @@ export const INITIAL_EMPLOYEES: Employee[] = rawData.map((data) => {
     lastName,
     dateOfBirth: data.dateOfBirth || '',
     startDate: data.startDate || '',
-    previousExperienceMonths: data.priorExperienceMonths || 0,
     statusVR: data.vrStatus || 'VR0',
     gender: 'Other', // Unknown from dataset
     country: 'Unknown', // Unknown from dataset
     role: 'Employee', // Default role
     languages: [], // Unknown from dataset
-    sickDaysYTD: 0,
     performanceRating: 3, // Default average rating
     totalExperienceMonths: data.totalMonthsExperience || 0,
     monthsToNextRaise: data.monthsUntilNextRate,
