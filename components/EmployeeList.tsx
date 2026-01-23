@@ -8,7 +8,7 @@ interface EmployeeListProps {
   columns: ColumnDefinition[];
   onUpdate: (employee: Employee) => void;
   onAdd: (employee: Employee) => void;
-  onRemove: (id: string) => void;
+  onRemove: (id: string) => Promise<void> | void;
 }
 
 export const EmployeeList: React.FC<EmployeeListProps> = ({ employees, columns, onUpdate, onAdd, onRemove }) => {
@@ -16,6 +16,7 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({ employees, columns, 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [raiseInfoEmp, setRaiseInfoEmp] = useState<Employee | null>(null);
 
   const filteredEmployees = employees
@@ -252,18 +253,24 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({ employees, columns, 
             <div className="flex gap-3">
               <button
                 onClick={() => setDeletingId(null)}
-                className="flex-1 py-2 text-slate-600 font-medium hover:bg-slate-100 rounded-lg transition-colors"
+                disabled={isDeleting}
+                className="flex-1 py-2 text-slate-600 font-medium hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  onRemove(deletingId);
-                  setDeletingId(null);
+                onClick={async () => {
+                  if (deletingId) {
+                    setIsDeleting(true);
+                    await onRemove(deletingId);
+                    setIsDeleting(false);
+                    setDeletingId(null);
+                  }
                 }}
-                className="flex-1 py-2 bg-rose-600 text-white font-medium rounded-lg hover:bg-rose-700 transition-colors shadow-sm"
+                disabled={isDeleting}
+                className="flex-1 py-2 bg-rose-600 text-white font-medium rounded-lg hover:bg-rose-700 transition-colors shadow-sm disabled:opacity-50 flex items-center justify-center"
               >
-                Delete
+                {isDeleting ? 'Deleting...' : 'Delete'}
               </button>
             </div>
           </div>

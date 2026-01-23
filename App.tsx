@@ -28,9 +28,11 @@ const App: React.FC = () => {
             ...DEFAULT_SETTINGS.vrThresholds,
             ...(parsed.vrThresholds || {}),
           },
-          monthlySickDays: Array.isArray(parsed.monthlySickDays)
-            ? parsed.monthlySickDays
-            : DEFAULT_SETTINGS.monthlySickDays,
+          monthlySickDays: [],
+          sickDaysByYear: parsed.sickDaysByYear ||
+            (Array.isArray(parsed.monthlySickDays) && parsed.monthlySickDays.length > 0
+              ? { ...DEFAULT_SETTINGS.sickDaysByYear, 2025: parsed.monthlySickDays }
+              : DEFAULT_SETTINGS.sickDaysByYear),
         };
       }
       return DEFAULT_SETTINGS;

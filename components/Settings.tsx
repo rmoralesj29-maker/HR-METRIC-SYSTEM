@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { SystemSettings, ColumnDefinition, Employee } from '../types';
+import { SystemSettings, ColumnDefinition, Employee, DEFAULT_SETTINGS } from '../types';
 import { Plus, Trash2, Download, Table, Settings as SettingsIcon, Layout, Thermometer } from 'lucide-react';
 
 interface SettingsProps {
@@ -18,6 +18,7 @@ export const Settings: React.FC<SettingsProps> = ({
   employees,
 }) => {
   const [activeTab, setActiveTab] = useState<'rules' | 'columns' | 'export' | 'sickdays'>('rules');
+  const [selectedYear, setSelectedYear] = useState<number>(2025);
   const [newColLabel, setNewColLabel] = useState('');
   const [newColType, setNewColType] = useState<'text' | 'number' | 'date'>('text');
 
@@ -33,9 +34,20 @@ export const Settings: React.FC<SettingsProps> = ({
   };
 
   const handleSickDayChange = (index: number, value: number) => {
-    const newSickDays = [...settings.monthlySickDays];
-    newSickDays[index].value = value;
-    onUpdateSettings({ ...settings, monthlySickDays: newSickDays });
+    const currentYearData =
+      settings.sickDaysByYear[selectedYear] ||
+      DEFAULT_SETTINGS.sickDaysByYear[2025].map((d) => ({ ...d, value: 0 }));
+
+    const newYearData = [...currentYearData];
+    newYearData[index] = { ...newYearData[index], value };
+
+    onUpdateSettings({
+      ...settings,
+      sickDaysByYear: {
+        ...settings.sickDaysByYear,
+        [selectedYear]: newYearData,
+      },
+    });
   };
 
   const handleAddColumn = () => {
@@ -216,15 +228,41 @@ export const Settings: React.FC<SettingsProps> = ({
 
         {activeTab === 'sickdays' && (
           <div className="max-w-3xl">
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold text-slate-800 mb-2">Monthly Sick Days</h2>
-              <p className="text-slate-500">Manually input the total number of sick days recorded for the company each month. This data populates the "Sick Days Overview" chart on the dashboard.</p>
+            <div className="mb-6 flex flex-col sm:flex-row justify-between items-start gap-4">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-800 mb-2">Monthly Sick Days</h2>
+                <p className="text-slate-500">
+                  Manually input the total number of sick days recorded for the company each month. This data populates
+                  the "Sick Days Overview" chart on the dashboard.
+                </p>
+              </div>
+              <div className="flex bg-slate-100 rounded-lg p-1 gap-1 shrink-0">
+                {[2025, 2026, 2027].map((year) => (
+                  <button
+                    key={year}
+                    onClick={() => setSelectedYear(year)}
+                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                      selectedYear === year
+                        ? 'bg-white text-indigo-700 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    {year}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                {settings.monthlySickDays.map((data, index) => (
-                  <div key={data.month} className="p-4 border-b border-r border-slate-100 last:border-r-0 hover:bg-slate-50 transition-colors">
+                {(
+                  settings.sickDaysByYear[selectedYear] ||
+                  DEFAULT_SETTINGS.sickDaysByYear[2025].map((d) => ({ ...d, value: 0 }))
+                ).map((data, index) => (
+                  <div
+                    key={data.month}
+                    className="p-4 border-b border-r border-slate-100 last:border-r-0 hover:bg-slate-50 transition-colors"
+                  >
                     <label className="block text-xs font-bold text-indigo-600 mb-2 uppercase">{data.month}</label>
                     <div className="relative">
                       <Thermometer size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />

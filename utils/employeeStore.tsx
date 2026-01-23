@@ -3,6 +3,7 @@ import { Employee, DEFAULT_SETTINGS } from '../types';
 import { enrichEmployee } from './experience';
 import { supabase } from './supabaseClient';
 import { INITIAL_EMPLOYEES } from './initialData';
+import { useToast } from './ToastContext';
 
 interface EmployeeStore {
   employees: Employee[];
@@ -65,6 +66,7 @@ const mapEmployeeToDb = (employee: Partial<Employee>) => {
 export const EmployeeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { showToast } = useToast();
 
   const loadEmployees = useCallback(async () => {
     setIsLoading(true);
@@ -196,29 +198,25 @@ export const EmployeeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       customFields: input.customFields ?? {},
     };
 
-    // Optimistic update
-    const enriched = enrichEmployee(base, DEFAULT_SETTINGS);
-    setEmployees((prev) => [...prev, enriched]);
-
     try {
       const dbRecord = mapEmployeeToDb(base);
       const { error } = await supabase.from('employees').insert([dbRecord]);
       if (error) {
         console.error('Error adding employee to DB:', error);
-        // Revert optimistic update if needed, or show toast
-        setEmployees((prev) => prev.filter(e => e.id !== base.id));
+        showToast('Failed to add employee: ' + error.message, 'error');
+      } else {
+        const enriched = enrichEmployee(base, DEFAULT_SETTINGS);
+        setEmployees((prev) => [...prev, enriched]);
+        showToast('Employee added successfully', 'success');
       }
     } catch (err) {
       console.error('Unexpected error adding employee:', err);
-      setEmployees((prev) => prev.filter(e => e.id !== base.id));
+      showToast('Unexpected error adding employee', 'error');
     }
-  }, []);
+  }, [showToast]);
 
   const updateEmployee = useCallback(async (employee: Employee) => {
     const enriched = enrichEmployee(employee, DEFAULT_SETTINGS);
-
-    // Optimistic update
-    setEmployees((prev) => prev.map((e) => (e.id === employee.id ? enriched : e)));
 
     try {
       const dbRecord = mapEmployeeToDb(employee);
@@ -228,29 +226,40 @@ export const EmployeeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const { error } = await supabase.from('employees').update(updates).eq('id', employee.id);
       if (error) {
         console.error('Error updating employee in DB:', error);
-        // Maybe revert? For now logging error.
+        showToast('Failed to update employee: ' + error.message, 'error');
+      } else {
+        setEmployees((prev) => prev.map((e) => (e.id === employee.id ? enriched : e)));
+        showToast('Employee updated successfully', 'success');
       }
     } catch (err) {
       console.error('Unexpected error updating employee:', err);
+      showToast('Unexpected error updating employee', 'error');
     }
-  }, []);
+  }, [showToast]);
 
   const deleteEmployee = useCallback(async (id: string) => {
-    // Optimistic update
-    const oldEmployees = employees;
-    setEmployees((prev) => prev.filter((e) => e.id !== id));
-
     try {
+      // First delete associated vacations to avoid FK constraints
+      const { error: vacationError } = await supabase.from('vacations').delete().eq('employee_id', id);
+      if (vacationError) {
+          console.error('Error deleting employee vacations:', vacationError);
+          // We can proceed to try deleting employee, but it might fail. Warn user.
+          showToast('Warning: Failed to clear employee records. Deletion might fail.', 'info');
+      }
+
       const { error } = await supabase.from('employees').delete().eq('id', id);
       if (error) {
         console.error('Error deleting employee from DB:', error);
-        setEmployees(oldEmployees); // Revert
+        showToast('Failed to delete employee: ' + error.message, 'error');
+      } else {
+        setEmployees((prev) => prev.filter((e) => e.id !== id));
+        showToast('Employee deleted successfully', 'success');
       }
     } catch (err) {
       console.error('Unexpected error deleting employee:', err);
-      setEmployees(oldEmployees); // Revert
+      showToast('Unexpected error deleting employee', 'error');
     }
-  }, [employees]);
+  }, [showToast]);
 
   const value: EmployeeStore = {
     employees,

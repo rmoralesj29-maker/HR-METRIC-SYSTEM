@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Employee, SystemSettings } from '../types';
+import { Employee, SystemSettings, DEFAULT_SETTINGS } from '../types';
 import {
   BarChart,
   Bar,
@@ -87,7 +87,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings, 
     return Object.entries(genderDist).map(([name, value]) => ({ name, value }));
   }, [employees]);
 
-  const totalSickDaysYTD = settings.monthlySickDays.reduce((acc, curr) => acc + (Number(curr.value) || 0), 0);
+  const currentYear = 2025;
+  const monthlySickDays =
+    settings.sickDaysByYear[currentYear] || DEFAULT_SETTINGS.sickDaysByYear[currentYear] || [];
+
+  const totalSickDaysYTD = monthlySickDays.reduce((acc, curr) => acc + (Number(curr.value) || 0), 0);
   const calculatedAvgSickDays = stats.totalEmployees > 0 ? (totalSickDaysYTD / stats.totalEmployees).toFixed(1) : 0;
   const averageTenureYears = (stats.averageTotalExperienceMonths / 12).toFixed(1);
 
@@ -168,7 +172,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings, 
           <h3 className="text-lg font-bold text-slate-800 mb-4">Sick Days Trend (YTD)</h3>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={settings.monthlySickDays}>
+              <AreaChart data={monthlySickDays}>
                 <defs>
                   <linearGradient id="colorSick" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#ef4444" stopOpacity={0.1} />

@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { Vacation } from '../types';
 import { supabase } from './supabaseClient';
+import { useToast } from './ToastContext';
 
 interface VacationStore {
   vacations: Vacation[];
@@ -43,6 +44,7 @@ const mapVacationToDb = (vacation: Vacation) => {
 export const VacationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [vacations, setVacations] = useState<Vacation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { showToast } = useToast();
 
   const loadVacations = useCallback(async () => {
     setIsLoading(true);
@@ -50,70 +52,72 @@ export const VacationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const { data, error } = await supabase.from('vacations').select('*');
       if (error) {
         console.error('Error fetching vacations:', error);
+        showToast('Failed to load vacation records', 'error');
       } else if (data) {
         setVacations(data.map(mapDbToVacation));
       }
     } catch (err) {
       console.error('Unexpected error loading vacations:', err);
+      showToast('Unexpected error loading vacation records', 'error');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [showToast]);
 
   useEffect(() => {
     loadVacations();
   }, [loadVacations]);
 
   const addVacation = useCallback(async (vacation: Vacation) => {
-    // Optimistic update
-    setVacations((prev) => [...prev, vacation]);
-
     try {
       const dbRecord = mapVacationToDb(vacation);
       const { error } = await supabase.from('vacations').insert([dbRecord]);
       if (error) {
         console.error('Error adding vacation to DB:', error);
-        setVacations((prev) => prev.filter(v => v.id !== vacation.id)); // Revert
+        showToast('Failed to add record: ' + error.message, 'error');
+      } else {
+        setVacations((prev) => [...prev, vacation]);
+        showToast('Record added successfully', 'success');
       }
     } catch (err) {
       console.error('Unexpected error adding vacation:', err);
-      setVacations((prev) => prev.filter(v => v.id !== vacation.id)); // Revert
+      showToast('Unexpected error adding record', 'error');
     }
-  }, []);
+  }, [showToast]);
 
   const updateVacation = useCallback(async (vacation: Vacation) => {
-    // Optimistic update
-    setVacations((prev) => prev.map((v) => (v.id === vacation.id ? vacation : v)));
-
     try {
       const dbRecord = mapVacationToDb(vacation);
       const { id, ...updates } = dbRecord;
       const { error } = await supabase.from('vacations').update(updates).eq('id', vacation.id);
       if (error) {
         console.error('Error updating vacation in DB:', error);
-        // Maybe revert?
+        showToast('Failed to update record: ' + error.message, 'error');
+      } else {
+        setVacations((prev) => prev.map((v) => (v.id === vacation.id ? vacation : v)));
+        showToast('Record updated successfully', 'success');
       }
     } catch (err) {
       console.error('Unexpected error updating vacation:', err);
+      showToast('Unexpected error updating record', 'error');
     }
-  }, []);
+  }, [showToast]);
 
   const deleteVacation = useCallback(async (id: string) => {
-    // Optimistic update
-    const oldVacations = vacations;
-    setVacations((prev) => prev.filter((v) => v.id !== id));
-
     try {
       const { error } = await supabase.from('vacations').delete().eq('id', id);
       if (error) {
         console.error('Error deleting vacation from DB:', error);
-        setVacations(oldVacations); // Revert
+        showToast('Failed to delete record: ' + error.message, 'error');
+      } else {
+        setVacations((prev) => prev.filter((v) => v.id !== id));
+        showToast('Record deleted successfully', 'success');
       }
     } catch (err) {
       console.error('Unexpected error deleting vacation:', err);
-      setVacations(oldVacations); // Revert
+      showToast('Unexpected error deleting record', 'error');
     }
-  }, [vacations]);
+  }, [showToast]);
 
   const value: VacationStore = {
     vacations,

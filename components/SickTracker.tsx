@@ -215,9 +215,9 @@ export const SickTracker: React.FC = () => {
         <SickModal
           vacation={editingId ? vacations.find(v => v.id === editingId) : undefined}
           onClose={handleCloseModal}
-          onSave={(v) => {
-            if (editingId) updateVacation(v);
-            else addVacation(v);
+          onSave={async (v) => {
+            if (editingId) await updateVacation(v);
+            else await addVacation(v);
             handleCloseModal();
           }}
           employees={employees}
