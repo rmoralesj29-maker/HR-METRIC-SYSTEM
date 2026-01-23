@@ -80,8 +80,6 @@ export const Settings: React.FC<SettingsProps> = ({
       'Gender',
       'Total Experience (Mo)',
       'VR Rate',
-      'In Raise Window',
-      'Months To Next Raise',
       ...customColumns.filter((c) => !c.isSystem).map((c) => c.label),
     ];
 
@@ -97,8 +95,6 @@ export const Settings: React.FC<SettingsProps> = ({
       e.gender,
       e.totalExperienceMonths,
       e.statusVR,
-      e.inRaiseWindow ? 'Yes' : 'No',
-      e.monthsToNextRaise ?? 'Max',
       ...customColumns.filter((c) => !c.isSystem).map((c) => e.customFields?.[c.id] || ''),
     ]);
 
@@ -191,16 +187,6 @@ export const Settings: React.FC<SettingsProps> = ({
                     className="w-full bg-white text-slate-900 border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-400"
                   />
                   <p className="text-xs text-slate-400 mt-1">Age where "Adult" VR logic applies (skips 6mo bump).</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Raise Alert Window (Days)</label>
-                  <input
-                    type="number"
-                    value={settings.raiseWindowDays}
-                    onChange={(e) => handleRuleChange('raiseWindowDays', parseInt(e.target.value))}
-                    className="w-full bg-white text-slate-900 border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-400"
-                  />
-                  <p className="text-xs text-slate-400 mt-1">Days before a raise to show alert.</p>
                 </div>
               </div>
 

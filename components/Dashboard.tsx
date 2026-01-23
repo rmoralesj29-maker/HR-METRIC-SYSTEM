@@ -38,7 +38,7 @@ const DEFAULT_GENDER_COLOR = '#94a3b8';
 export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings }) => {
   const { asOfDate } = useGlobalContext();
   const [drillDownConfig, setDrillDownConfig] = React.useState<{ title: string; employees: Employee[] } | null>(null);
-  const stats = useMemo(() => getDashboardStats(employees, settings), [employees, settings]);
+  const stats = useMemo(() => getDashboardStats(employees, settings, asOfDate.getFullYear()), [employees, settings, asOfDate]);
 
   const handleDrillDown = (type: string, data: any) => {
     if (!data) return;

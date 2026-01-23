@@ -24,12 +24,10 @@ export interface Employee {
   startDate: string; // ISO date string YYYY-MM-DD
   // previousExperienceMonths removed
   totalExperienceMonths: number;
-  monthsToNextRaise: number | null;
   // sickDaysYTD removed
   performanceRating: number; // 1-5
   languages: string[];
   customFields?: Record<string, string | number | null>;
-  inRaiseWindow?: boolean;
   age?: number;
 
   // Fields from other branch for compatibility
@@ -43,7 +41,6 @@ export interface Employee {
 export interface CalculatedEmployeeStats extends Employee {
   totalDaysWorked: number;
   currentMonthsWorked: number;
-  nextMilestone: number | null;
 }
 
 export interface ChartData {
@@ -81,8 +78,6 @@ export interface SystemSettings {
   showCountryStats: boolean;
   showLanguageStats: boolean;
   // New Global Stats
-  /** @deprecated use sickDaysByYear instead */
-  monthlySickDays: MonthlySickData[];
   sickDaysByYear: Record<number, MonthlySickData[]>;
 }
 
@@ -110,7 +105,6 @@ export const DEFAULT_SETTINGS: SystemSettings = {
   raiseWindowDays: 15,
   showCountryStats: true,
   showLanguageStats: true,
-  monthlySickDays: [],
   sickDaysByYear: {
     2025: [
       { month: 'Jan', value: 0 },

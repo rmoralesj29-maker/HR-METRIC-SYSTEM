@@ -11,7 +11,7 @@ export interface DashboardStats {
   languageDistribution: Record<string, number>;
 }
 
-export const getDashboardStats = (employees: Employee[], settings: SystemSettings): DashboardStats => {
+export const getDashboardStats = (employees: Employee[], settings: SystemSettings, year: number): DashboardStats => {
   if (!employees.length) {
     return {
       totalEmployees: 0,
@@ -36,7 +36,7 @@ export const getDashboardStats = (employees: Employee[], settings: SystemSetting
   const averageTotalExperienceMonths = Number((sumExperience / totalEmployees).toFixed(1));
 
   // Calculate Average Sick Days (Global Total / Total Employees)
-  const currentYear = new Date().getFullYear();
+  const currentYear = year;
   const yearData = settings.sickDaysByYear?.[currentYear] || [];
   const totalSickDays = yearData.reduce((sum, m) => sum + m.value, 0);
   const averageSickDays = Number((totalSickDays / totalEmployees).toFixed(1));

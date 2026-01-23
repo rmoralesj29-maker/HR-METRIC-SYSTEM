@@ -31,7 +31,6 @@ const mapDbToEmployee = (record: any): Employee => {
       startDate: record.start_date,
       // Calculated fields initialized to 0/null, enriched later
       totalExperienceMonths: 0,
-      monthsToNextRaise: null,
       performanceRating: record.performance_rating,
       languages: record.languages || [],
       customFields: record.custom_fields || {},
@@ -69,17 +68,8 @@ export const EmployeeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const { data, error } = await supabase.from('employees').select('*');
       if (error) {
         console.error('Error fetching employees:', error);
-        // Fallback: load initial data so UI isn't empty
-        console.warn('Fallback: Loading initial data due to DB error.');
-        const validEmployees = INITIAL_EMPLOYEES.filter(e => {
-             if (!e.firstName || !e.lastName) {
-                 console.warn('Skipping invalid employee in fallback:', e);
-                 return false;
-             }
-             return true;
-        });
-        console.log(`Loaded ${validEmployees.length} employees from authoritative source (Fallback mode).`);
-        setEmployees(validEmployees.map(e => enrichEmployee(e, DEFAULT_SETTINGS)));
+        showToast('Failed to load employees from database.', 'error');
+        setEmployees([]);
       } else if (data) {
         // Prepare for sync: "Insert or upsert all employees"
         const existingEmployees = data.map(mapDbToEmployee);
@@ -156,14 +146,13 @@ export const EmployeeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             setEmployees(existingEmployees);
         }
       } else {
-        // Fallback for when Supabase fails (e.g. no connection), maybe use local storage or just memory
-        console.warn('Could not fetch from Supabase. Using INITIAL_EMPLOYEES directly if empty.');
-        setEmployees(INITIAL_EMPLOYEES.map(e => enrichEmployee(e, DEFAULT_SETTINGS)));
+        showToast('No data returned from database.', 'error');
+        setEmployees([]);
       }
     } catch (err) {
       console.error('Unexpected error loading employees:', err);
-      // Fallback in case of error
-      setEmployees(INITIAL_EMPLOYEES.map(e => enrichEmployee(e, DEFAULT_SETTINGS)));
+      showToast('Unexpected error loading employees.', 'error');
+      setEmployees([]);
     } finally {
       setIsLoading(false);
     }
@@ -185,7 +174,6 @@ export const EmployeeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       dateOfBirth: input.dateOfBirth ?? new Date().toISOString().split('T')[0],
       startDate: input.startDate ?? new Date().toISOString().split('T')[0],
       totalExperienceMonths: 0,
-      monthsToNextRaise: null,
       performanceRating: input.performanceRating ?? 3,
       languages: input.languages ?? [],
       customFields: input.customFields ?? {},
@@ -236,8 +224,8 @@ export const EmployeeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const { error: vacationError } = await supabase.from('vacations').delete().eq('employee_id', id);
       if (vacationError) {
           console.error('Error deleting employee vacations:', vacationError);
-          // We can proceed to try deleting employee, but it might fail. Warn user.
-          showToast('Warning: Failed to clear employee records. Deletion might fail.', 'info');
+          showToast('Failed to delete employee records (vacations). Aborting.', 'error');
+          return;
       }
 
       const { error } = await supabase.from('employees').delete().eq('id', id);

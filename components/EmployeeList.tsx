@@ -54,7 +54,6 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({ employees, columns, 
     dateOfBirth: '',
     startDate: new Date().toISOString().split('T')[0],
     totalExperienceMonths: 0,
-    monthsToNextRaise: null,
     performanceRating: 3,
     languages: [],
     customFields: {},
@@ -153,15 +152,7 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({ employees, columns, 
                   <td className="px-6 py-4">
                     <div className="flex flex-col gap-1 text-xs">
                       <span className="text-slate-600">
-                        Total: <span className="font-bold text-slate-800">{employee.totalExperienceMonths} mo</span>
-                      </span>
-                      <span className="text-slate-400">
-                        Next Raise:{' '}
-                        {employee.inRaiseWindow ? (
-                          <span className="text-amber-600 font-bold">NOW</span>
-                        ) : (
-                          `${employee.monthsToNextRaise ?? 'Max'} mo`
-                        )}
+                        Tenure: <span className="font-bold text-slate-800">{employee.totalExperienceMonths} mo</span>
                       </span>
                     </div>
                   </td>
@@ -308,7 +299,6 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ employee, columns
     const cleaned: Employee = {
       ...formData,
       performanceRating: Math.min(5, Math.max(1, Number(formData.performanceRating) || 1)),
-      monthsToNextRaise: formData.monthsToNextRaise ?? null,
       totalExperienceMonths: formData.totalExperienceMonths || 0,
     };
 

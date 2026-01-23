@@ -16,7 +16,6 @@ interface Message {
 
 const buildLocalReply = (employees: Employee[], question: string): string => {
   const total = employees.length;
-  const raiseDue = employees.filter((e) => e.inRaiseWindow).map((e) => formatEmployeeName(e));
   const topPerformers = [...employees]
     .sort((a, b) => (b.performanceRating || 0) - (a.performanceRating || 0))
     .slice(0, 3)
@@ -26,9 +25,8 @@ const buildLocalReply = (employees: Employee[], question: string): string => {
     `You asked: **${question.trim()}**`,
     `Here is what I can share from live data:`,
     `• Total employees: **${total}**`,
-    `• Raise window: ${raiseDue.length ? raiseDue.join(', ') : 'none at the moment'}`,
     `• Top performers: ${topPerformers.length ? topPerformers.join(', ') : 'no data yet'}`,
-    `Ask about specific people (e.g. "When is ${employees[0]?.firstName || 'someone'}'s next raise?") and I'll reference the latest records.`,
+    `Ask about specific people (e.g. "How is ${employees[0]?.firstName || 'someone'} doing?") and I'll reference the latest records.`,
   ].join('\n');
 };
 
@@ -68,8 +66,6 @@ export const BirkirBot: React.FC<BirkirBotProps> = ({ employees }) => {
           age: e.age,
           tenureMonths: e.totalExperienceMonths,
           vrRate: e.statusVR,
-          inRaiseWindow: e.inRaiseWindow,
-          monthsToNextRaise: e.monthsToNextRaise,
           country: e.country,
           languages: e.languages,
           gender: e.gender,
@@ -82,8 +78,7 @@ export const BirkirBot: React.FC<BirkirBotProps> = ({ employees }) => {
           Your capabilities:
           1. Answer questions about specific employees (e.g., "When is Alina's next raise?", "How old is Ben?").
           2. Provide aggregate statistics (e.g., "How many people speak Spanish?", "What is the gender ratio?").
-          3. Analyze the "Raise Window". If 'inRaiseWindow' is true, they need a review immediately.
-          4. Be helpful, professional, yet friendly.
+          3. Be helpful, professional, yet friendly.
 
           Data: ${JSON.stringify(contextData)}
         `;
@@ -97,7 +92,7 @@ export const BirkirBot: React.FC<BirkirBotProps> = ({ employees }) => {
         });
 
         const response = await model;
-        const text = (await response).text() || "I'm having trouble thinking right now.";
+        const text = (await response).text || "I'm having trouble thinking right now.";
         setMessages((prev) => [...prev, { role: 'model', text }]);
       } catch (error) {
         console.error(error);

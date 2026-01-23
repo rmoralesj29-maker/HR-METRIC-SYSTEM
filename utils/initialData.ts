@@ -61,8 +61,7 @@ export const INITIAL_EMPLOYEES: Employee[] = rawData.map((data) => {
     role: 'Employee', // Default role
     languages: [], // Unknown from dataset
     performanceRating: 3, // Default average rating
-    totalExperienceMonths: data.totalMonthsExperience || 0,
-    monthsToNextRaise: data.monthsUntilNextRate,
+    totalExperienceMonths: 0,
     age: data.age || undefined,
     customFields: {
       totalDaysWorked: data.totalDaysWorked,
