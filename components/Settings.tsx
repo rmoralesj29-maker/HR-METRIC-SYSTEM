@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { SystemSettings, ColumnDefinition, Employee, DEFAULT_SETTINGS } from '../types';
+import React, { useState, useEffect } from 'react';
+import { SystemSettings, ColumnDefinition, Employee, DEFAULT_SETTINGS, DEFAULT_COLUMNS, getDefaultMonthlySickDays } from '../types';
 import { Plus, Trash2, Download, Table, Settings as SettingsIcon, Layout, Thermometer } from 'lucide-react';
+import { useToast } from '../utils/ToastContext';
 
 interface SettingsProps {
   settings: SystemSettings;
@@ -18,28 +19,21 @@ export const Settings: React.FC<SettingsProps> = ({
   employees,
 }) => {
   const [activeTab, setActiveTab] = useState<'rules' | 'columns' | 'export' | 'sickdays'>('rules');
-  const [selectedYear, setSelectedYear] = useState<number>(2025);
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [newColLabel, setNewColLabel] = useState('');
   const [newColType, setNewColType] = useState<'text' | 'number' | 'date'>('text');
+  const { showToast } = useToast();
 
   const handleRuleChange = (key: keyof SystemSettings, value: any) => {
     onUpdateSettings({ ...settings, [key]: value });
   };
 
-  const handleVRThresholdChange = (key: keyof SystemSettings['vrThresholds'], value: number) => {
-    onUpdateSettings({
-      ...settings,
-      vrThresholds: { ...settings.vrThresholds, [key]: value },
-    });
-  };
-
   const handleSickDayChange = (index: number, value: number) => {
     const currentYearData =
-      settings.sickDaysByYear[selectedYear] ||
-      DEFAULT_SETTINGS.sickDaysByYear[2025].map((d) => ({ ...d, value: 0 }));
+      settings.sickDaysByYear[selectedYear] || getDefaultMonthlySickDays();
 
     const newYearData = [...currentYearData];
-    newYearData[index] = { ...newYearData[index], value };
+    newYearData[index] = { ...newYearData[index], value: Math.max(0, value) };
 
     onUpdateSettings({
       ...settings,
@@ -51,20 +45,25 @@ export const Settings: React.FC<SettingsProps> = ({
   };
 
   const handleAddColumn = () => {
-    if (!newColLabel.trim()) return;
-    const newId = newColLabel.toLowerCase().replace(/\s+/g, '_');
+    if (!newColLabel.trim()) {
+      showToast('Column label is required', 'error');
+      return;
+    }
+    const newId = `custom_${Date.now()}`;
     const newCol: ColumnDefinition = {
       id: newId,
-      label: newColLabel,
+      label: newColLabel.trim(),
       type: newColType,
       isSystem: false,
     };
     onUpdateColumns([...customColumns, newCol]);
     setNewColLabel('');
+    showToast('Column added successfully', 'success');
   };
 
   const handleRemoveColumn = (id: string) => {
     onUpdateColumns(customColumns.filter((c) => c.id !== id));
+    showToast('Column removed', 'success');
   };
 
   const handleExport = () => {
@@ -76,12 +75,13 @@ export const Settings: React.FC<SettingsProps> = ({
       'Country',
       'Languages',
       'DOB',
+      'Age',
       'Start Date',
+      'Tenure (Months)',
       'Gender',
-      'Total Experience (Mo)',
       'VR Rate',
-      'In Raise Window',
-      'Months To Next Raise',
+      'Performance Rating',
+      'Status',
       ...customColumns.filter((c) => !c.isSystem).map((c) => c.label),
     ];
 
@@ -91,14 +91,15 @@ export const Settings: React.FC<SettingsProps> = ({
       e.lastName,
       e.role,
       e.country,
-      e.languages.join(', '),
+      e.languages.join('; '),
       e.dateOfBirth,
+      e.age || '',
       e.startDate,
+      e.tenureMonths?.toFixed(1) || '0',
       e.gender,
-      e.totalExperienceMonths,
-      e.statusVR,
-      e.inRaiseWindow ? 'Yes' : 'No',
-      e.monthsToNextRaise ?? 'Max',
+      e.vrRate,
+      e.performanceRating || 3,
+      e.status || 'Active',
       ...customColumns.filter((c) => !c.isSystem).map((c) => e.customFields?.[c.id] || ''),
     ]);
 
@@ -108,11 +109,16 @@ export const Settings: React.FC<SettingsProps> = ({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', 'employees_export.csv');
+    link.setAttribute('download', `hr_employees_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast('CSV exported successfully', 'success');
   };
+
+  const currentYearSickDays = settings.sickDaysByYear[selectedYear] || getDefaultMonthlySickDays();
+  const totalSickDays = currentYearSickDays.reduce((sum, m) => sum + (m.value || 0), 0);
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-100 min-h-[600px] flex flex-col md:flex-row overflow-hidden animate-fade-in">
@@ -123,7 +129,7 @@ export const Settings: React.FC<SettingsProps> = ({
             onClick={() => setActiveTab('rules')}
             className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${activeTab === 'rules' ? 'bg-indigo-100 text-indigo-700' : 'text-slate-600 hover:bg-slate-100'}`}
           >
-            <SettingsIcon size={18} /> Rules & Formulas
+            <SettingsIcon size={18} /> Rules & Settings
           </button>
           <button
             onClick={() => setActiveTab('sickdays')}
@@ -150,8 +156,8 @@ export const Settings: React.FC<SettingsProps> = ({
         {activeTab === 'rules' && (
           <div className="space-y-8 max-w-2xl">
             <div>
-              <h2 className="text-2xl font-bold text-slate-800 mb-2">System Rules</h2>
-              <p className="text-slate-500">Modify the business logic that drives calculations across the app.</p>
+              <h2 className="text-2xl font-bold text-slate-800 mb-2">System Settings</h2>
+              <p className="text-slate-500">Configure system rules and dashboard preferences.</p>
             </div>
 
             <div className="space-y-6">
@@ -181,44 +187,17 @@ export const Settings: React.FC<SettingsProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Adult Age Threshold</label>
-                  <input
-                    type="number"
-                    value={settings.adultAgeThreshold}
-                    onChange={(e) => handleRuleChange('adultAgeThreshold', parseInt(e.target.value))}
-                    className="w-full bg-white text-slate-900 border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-400"
-                  />
-                  <p className="text-xs text-slate-400 mt-1">Age where "Adult" VR logic applies (skips 6mo bump).</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Raise Alert Window (Days)</label>
-                  <input
-                    type="number"
-                    value={settings.raiseWindowDays}
-                    onChange={(e) => handleRuleChange('raiseWindowDays', parseInt(e.target.value))}
-                    className="w-full bg-white text-slate-900 border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-400"
-                  />
-                  <p className="text-xs text-slate-400 mt-1">Days before a raise to show alert.</p>
-                </div>
-              </div>
-
               <div>
-                <h4 className="text-sm font-semibold text-slate-900 mb-3">VR Experience Thresholds (Months)</h4>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  {(Object.keys(settings.vrThresholds) as Array<keyof SystemSettings['vrThresholds']>).map((key) => (
-                    <div key={key}>
-                      <label className="block text-xs font-medium text-slate-500 mb-1 uppercase">{key}</label>
-                      <input
-                        type="number"
-                        value={settings.vrThresholds[key]}
-                        onChange={(e) => handleVRThresholdChange(key, parseInt(e.target.value))}
-                        className="w-full bg-white text-slate-900 border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-400"
-                      />
-                    </div>
-                  ))}
-                </div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Adult Age Threshold</label>
+                <input
+                  type="number"
+                  min={18}
+                  max={30}
+                  value={settings.adultAgeThreshold}
+                  onChange={(e) => handleRuleChange('adultAgeThreshold', parseInt(e.target.value) || 22)}
+                  className="w-full max-w-xs bg-white text-slate-900 border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-400"
+                />
+                <p className="text-xs text-slate-400 mt-1">Used for age group bucketing in demographics chart.</p>
               </div>
             </div>
           </div>
@@ -228,10 +207,9 @@ export const Settings: React.FC<SettingsProps> = ({
           <div className="max-w-3xl">
             <div className="mb-6 flex flex-col sm:flex-row justify-between items-start gap-4">
               <div>
-                <h2 className="text-2xl font-bold text-slate-800 mb-2">Monthly Sick Days</h2>
+                <h2 className="text-2xl font-bold text-slate-800 mb-2">Company-Wide Sick Days</h2>
                 <p className="text-slate-500">
-                  Manually input the total number of sick days recorded for the company each month. This data populates
-                  the "Sick Days Overview" chart on the dashboard.
+                  Enter the total sick days recorded for the company each month. This data is used for the dashboard sick days chart.
                 </p>
               </div>
               <div className="flex bg-slate-100 rounded-lg p-1 gap-1 shrink-0">
@@ -253,10 +231,7 @@ export const Settings: React.FC<SettingsProps> = ({
 
             <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                {(
-                  settings.sickDaysByYear[selectedYear] ||
-                  DEFAULT_SETTINGS.sickDaysByYear[2025].map((d) => ({ ...d, value: 0 }))
-                ).map((data, index) => (
+                {currentYearSickDays.map((data, index) => (
                   <div
                     key={data.month}
                     className="p-4 border-b border-r border-slate-100 last:border-r-0 hover:bg-slate-50 transition-colors"
@@ -275,6 +250,14 @@ export const Settings: React.FC<SettingsProps> = ({
                   </div>
                 ))}
               </div>
+              <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center">
+                <span className="text-sm text-slate-600">
+                  Total for {selectedYear}: <span className="font-bold text-slate-800">{totalSickDays} days</span>
+                </span>
+                <span className="text-xs text-slate-400">
+                  Avg per employee: {employees.length > 0 ? (totalSickDays / employees.length).toFixed(1) : 0} days
+                </span>
+              </div>
             </div>
           </div>
         )}
@@ -282,8 +265,8 @@ export const Settings: React.FC<SettingsProps> = ({
         {activeTab === 'columns' && (
           <div className="max-w-3xl">
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-slate-800 mb-2">Data Schema</h2>
-              <p className="text-slate-500">Add or remove columns from the employee database. New fields will appear in the dashboard and employee list.</p>
+              <h2 className="text-2xl font-bold text-slate-800 mb-2">Custom Data Fields</h2>
+              <p className="text-slate-500">Add custom columns to track additional employee information.</p>
             </div>
 
             <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-8">
@@ -362,14 +345,16 @@ export const Settings: React.FC<SettingsProps> = ({
         {activeTab === 'export' && (
           <div className="max-w-2xl">
             <h2 className="text-2xl font-bold text-slate-800 mb-2">Export Data</h2>
-            <p className="text-slate-500 mb-8">Download a complete CSV file of all employee records, including system calculated fields and your custom columns.</p>
+            <p className="text-slate-500 mb-8">Download a complete CSV file of all employee records, including derived fields and custom columns.</p>
 
             <div className="bg-slate-50 p-8 rounded-xl border border-slate-200 text-center">
               <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Table size={32} />
               </div>
               <h3 className="text-lg font-bold text-slate-800 mb-2">All Employee Records</h3>
-              <p className="text-slate-500 text-sm mb-6 max-w-sm mx-auto">Contains {employees.length} rows with {20 + customColumns.filter((c) => !c.isSystem).length} columns of data.</p>
+              <p className="text-slate-500 text-sm mb-6 max-w-sm mx-auto">
+                Contains {employees.length} employees with {14 + customColumns.filter((c) => !c.isSystem).length} data columns.
+              </p>
 
               <button onClick={handleExport} className="bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200 flex items-center gap-2 mx-auto">
                 <Download size={20} /> Download CSV

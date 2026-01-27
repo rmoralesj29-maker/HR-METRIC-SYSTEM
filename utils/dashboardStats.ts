@@ -3,7 +3,7 @@ import { Employee, SystemSettings } from '../types';
 export interface DashboardStats {
   totalEmployees: number;
   averageAge: number;
-  averageTotalExperienceMonths: number;
+  averageTenureMonths: number;
   averageSickDays: number;
   vrDistribution: Record<string, number>;
   ageBuckets: Record<string, number>;
@@ -11,12 +11,12 @@ export interface DashboardStats {
   languageDistribution: Record<string, number>;
 }
 
-export const getDashboardStats = (employees: Employee[], settings: SystemSettings): DashboardStats => {
+export const getDashboardStats = (employees: Employee[], settings: SystemSettings, asOfYear?: number): DashboardStats => {
   if (!employees.length) {
     return {
       totalEmployees: 0,
       averageAge: 0,
-      averageTotalExperienceMonths: 0,
+      averageTenureMonths: 0,
       averageSickDays: 0,
       vrDistribution: { VR0: 0, VR1: 0, VR2: 0, VR3: 0, VR4: 0, VR5: 0 },
       ageBuckets: { '<22': 0, '22-29': 0, '30-39': 0, '40-49': 0, '50+': 0 },
@@ -25,29 +25,34 @@ export const getDashboardStats = (employees: Employee[], settings: SystemSetting
     };
   }
 
-  // Employees are assumed to be already enriched by App.tsx
-  const enriched = employees;
-  const totalEmployees = enriched.length;
+  const totalEmployees = employees.length;
 
-  const sumAge = enriched.reduce((sum, emp) => sum + (emp.age || 0), 0);
+  // Calculate average age
+  const sumAge = employees.reduce((sum, emp) => sum + (emp.age || 0), 0);
   const averageAge = Number((sumAge / totalEmployees).toFixed(1));
 
-  const sumExperience = enriched.reduce((sum, emp) => sum + (emp.totalExperienceMonths || 0), 0);
-  const averageTotalExperienceMonths = Number((sumExperience / totalEmployees).toFixed(1));
+  // Calculate average tenure (in months)
+  const sumTenure = employees.reduce((sum, emp) => sum + (emp.tenureMonths || 0), 0);
+  const averageTenureMonths = Number((sumTenure / totalEmployees).toFixed(1));
 
   // Calculate Average Sick Days (Global Total / Total Employees)
-  const currentYear = new Date().getFullYear();
+  const currentYear = asOfYear || new Date().getFullYear();
   const yearData = settings.sickDaysByYear?.[currentYear] || [];
-  const totalSickDays = yearData.reduce((sum, m) => sum + m.value, 0);
+  const totalSickDays = yearData.reduce((sum, m) => sum + (m.value || 0), 0);
   const averageSickDays = Number((totalSickDays / totalEmployees).toFixed(1));
 
-  const vrDistribution = enriched.reduce((acc, emp) => {
-    const key = emp.statusVR || 'VR0';
-    acc[key] = (acc[key] || 0) + 1;
-    return acc;
-  }, { VR0: 0, VR1: 0, VR2: 0, VR3: 0, VR4: 0, VR5: 0 } as Record<string, number>);
+  // VR Rate distribution
+  const vrDistribution = employees.reduce(
+    (acc, emp) => {
+      const key = emp.vrRate || 'VR0';
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    },
+    { VR0: 0, VR1: 0, VR2: 0, VR3: 0, VR4: 0, VR5: 0 } as Record<string, number>
+  );
 
-  const ageBuckets = enriched.reduce(
+  // Age buckets
+  const ageBuckets = employees.reduce(
     (acc, emp) => {
       const age = emp.age || 0;
       if (age < 22) acc['<22'] += 1;
@@ -60,18 +65,18 @@ export const getDashboardStats = (employees: Employee[], settings: SystemSetting
     { '<22': 0, '22-29': 0, '30-39': 0, '40-49': 0, '50+': 0 } as Record<string, number>
   );
 
-  const performanceDistribution = enriched.reduce(
+  // Performance distribution
+  const performanceDistribution = employees.reduce(
     (acc, emp) => {
-      const rating = Math.min(5, Math.max(1, Math.round(emp.performanceRating || 0))) as 1 | 2 | 3 | 4 | 5;
+      const rating = Math.min(5, Math.max(1, Math.round(emp.performanceRating || 3))) as 1 | 2 | 3 | 4 | 5;
       acc[rating] += 1;
       return acc;
     },
     { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } as Record<number, number>
   );
 
-  // raiseDue removed
-
-  const languageDistribution = enriched.reduce((acc, emp) => {
+  // Language distribution
+  const languageDistribution = employees.reduce((acc, emp) => {
     if (emp.languages && Array.isArray(emp.languages)) {
       emp.languages.forEach((lang) => {
         const trimmedLang = lang.trim();
@@ -86,7 +91,7 @@ export const getDashboardStats = (employees: Employee[], settings: SystemSetting
   return {
     totalEmployees,
     averageAge,
-    averageTotalExperienceMonths,
+    averageTenureMonths,
     averageSickDays,
     vrDistribution,
     ageBuckets,

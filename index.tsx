@@ -3,7 +3,6 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import { EmployeeProvider } from './utils/employeeStore';
 import { SettingsProvider } from './utils/settingsStore';
-import { VacationProvider } from './utils/vacationStore';
 import { ToastProvider } from './utils/ToastContext';
 import { GlobalProvider } from './utils/GlobalContext';
 
@@ -19,9 +18,7 @@ root.render(
       <SettingsProvider>
         <GlobalProvider>
           <EmployeeProvider>
-            <VacationProvider>
-              <App />
-            </VacationProvider>
+            <App />
           </EmployeeProvider>
         </GlobalProvider>
       </SettingsProvider>

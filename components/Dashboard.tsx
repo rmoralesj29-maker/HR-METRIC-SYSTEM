@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Employee, SystemSettings, DEFAULT_SETTINGS } from '../types';
+import { Employee, SystemSettings } from '../types';
 import {
   BarChart,
   Bar,
@@ -30,15 +30,17 @@ interface DashboardProps {
 const COLORS = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ef4444', '#14b8a6'];
 
 const GENDER_COLORS: Record<string, string> = {
-  Male: '#8b5cf6', // Purple
-  Female: '#ec4899', // Pink
+  Male: '#8b5cf6',
+  Female: '#ec4899',
 };
 const DEFAULT_GENDER_COLOR = '#94a3b8';
 
 export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings }) => {
   const { asOfDate } = useGlobalContext();
   const [drillDownConfig, setDrillDownConfig] = React.useState<{ title: string; employees: Employee[] } | null>(null);
-  const stats = useMemo(() => getDashboardStats(employees, settings), [employees, settings]);
+
+  const currentYear = asOfDate.getFullYear();
+  const stats = useMemo(() => getDashboardStats(employees, settings, currentYear), [employees, settings, currentYear]);
 
   const handleDrillDown = (type: string, data: any) => {
     if (!data) return;
@@ -48,7 +50,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings }
     let filtered: Employee[] = [];
 
     if (type === 'VR Rate') {
-      filtered = employees.filter((e) => (e.statusVR || 'VR0') === name);
+      filtered = employees.filter((e) => (e.vrRate || 'VR0') === name);
     } else if (type === 'Age Group') {
       filtered = employees.filter((e) => {
         const age = e.age || 0;
@@ -61,7 +63,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings }
       });
     } else if (type === 'Tenure') {
       filtered = employees.filter((e) => {
-        const tenure = e.totalExperienceMonths || 0;
+        const tenure = e.tenureMonths || 0;
         if (name === '<6m') return tenure < 6;
         if (name === '6m-1y') return tenure >= 6 && tenure < 12;
         if (name === '1y-2y') return tenure >= 12 && tenure < 24;
@@ -72,9 +74,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings }
     } else if (type === 'Gender') {
       filtered = employees.filter((e) => (e.gender || 'Other') === name);
     } else if (type === 'Language') {
-       filtered = employees.filter(e => e.languages && e.languages.includes(name));
+      filtered = employees.filter((e) => e.languages && e.languages.includes(name));
     } else if (type === 'Country') {
-       filtered = employees.filter(e => (e.country || 'Unknown') === name);
+      filtered = employees.filter((e) => (e.country || 'Unknown') === name);
     }
 
     setDrillDownConfig({ title: `${type}: ${name}`, employees: filtered });
@@ -90,33 +92,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings }
   );
 
   const ageDist = useMemo(
-    () =>
-      [
-        { name: '<22', value: stats.ageBuckets['<22'] },
-        { name: '22-29', value: stats.ageBuckets['22-29'] },
-        { name: '30-39', value: stats.ageBuckets['30-39'] },
-        { name: '40-49', value: stats.ageBuckets['40-49'] },
-        { name: '50+', value: stats.ageBuckets['50+'] },
-      ],
+    () => [
+      { name: '<22', value: stats.ageBuckets['<22'] },
+      { name: '22-29', value: stats.ageBuckets['22-29'] },
+      { name: '30-39', value: stats.ageBuckets['30-39'] },
+      { name: '40-49', value: stats.ageBuckets['40-49'] },
+      { name: '50+', value: stats.ageBuckets['50+'] },
+    ],
     [stats.ageBuckets]
   );
 
   const tenureDist = useMemo(
     () => [
-      { name: '<6m', value: employees.filter((e) => (e.totalExperienceMonths || 0) < 6).length },
-      {
-        name: '6m-1y',
-        value: employees.filter((e) => (e.totalExperienceMonths || 0) >= 6 && (e.totalExperienceMonths || 0) < 12).length,
-      },
-      {
-        name: '1y-2y',
-        value: employees.filter((e) => (e.totalExperienceMonths || 0) >= 12 && (e.totalExperienceMonths || 0) < 24).length,
-      },
-      {
-        name: '2y-3y',
-        value: employees.filter((e) => (e.totalExperienceMonths || 0) >= 24 && (e.totalExperienceMonths || 0) < 36).length,
-      },
-      { name: '3y+', value: employees.filter((e) => (e.totalExperienceMonths || 0) >= 36).length },
+      { name: '<6m', value: employees.filter((e) => (e.tenureMonths || 0) < 6).length },
+      { name: '6m-1y', value: employees.filter((e) => (e.tenureMonths || 0) >= 6 && (e.tenureMonths || 0) < 12).length },
+      { name: '1y-2y', value: employees.filter((e) => (e.tenureMonths || 0) >= 12 && (e.tenureMonths || 0) < 24).length },
+      { name: '2y-3y', value: employees.filter((e) => (e.tenureMonths || 0) >= 24 && (e.tenureMonths || 0) < 36).length },
+      { name: '3y+', value: employees.filter((e) => (e.tenureMonths || 0) >= 36).length },
     ],
     [employees]
   );
@@ -130,14 +122,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings }
     return Object.entries(genderDist).map(([name, value]) => ({ name, value }));
   }, [employees]);
 
-  const currentYear = asOfDate.getFullYear();
-  // Fallback to 2025 or empty if year not found, but we want to show empty graph rather than crash
-  const monthlySickDays =
-    settings.sickDaysByYear[currentYear] || [];
-
+  const monthlySickDays = settings.sickDaysByYear[currentYear] || [];
   const totalSickDaysYTD = monthlySickDays.reduce((acc, curr) => acc + (Number(curr.value) || 0), 0);
   const calculatedAvgSickDays = stats.totalEmployees > 0 ? (totalSickDaysYTD / stats.totalEmployees).toFixed(1) : 0;
-  const averageTenureYears = (stats.averageTotalExperienceMonths / 12).toFixed(1);
+  const averageTenureYears = (stats.averageTenureMonths / 12).toFixed(1);
 
   const languageData = useMemo(() => {
     return Object.entries(stats.languageDistribution)
@@ -204,7 +192,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings }
 
         {/* Sick Days Trend */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-          <h3 className="text-lg font-bold text-slate-800 mb-4">Sick Days Trend (YTD)</h3>
+          <h3 className="text-lg font-bold text-slate-800 mb-4">Sick Days Trend ({currentYear})</h3>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={monthlySickDays}>

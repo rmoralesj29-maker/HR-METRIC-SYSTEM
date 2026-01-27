@@ -1,61 +1,47 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { Employee, DEFAULT_SETTINGS } from '../types';
-import { enrichEmployee } from './experience';
-import { supabase } from './supabaseClient';
+import { Employee, VRRate } from '../types';
 import { INITIAL_EMPLOYEES } from './initialData';
 import { useToast } from './ToastContext';
+
+const STORAGE_KEY = 'hr_employees';
 
 interface EmployeeStore {
   employees: Employee[];
   isLoading: boolean;
-  loadEmployees: () => Promise<void>;
-  addEmployee: (input: Partial<Employee> | Employee) => Promise<void>;
-  updateEmployee: (employee: Employee) => Promise<void>;
-  deleteEmployee: (id: string) => Promise<void>;
+  addEmployee: (input: Partial<Employee>) => void;
+  updateEmployee: (employee: Employee) => void;
+  deleteEmployee: (id: string) => void;
 }
 
 const EmployeeContext = createContext<EmployeeStore | undefined>(undefined);
 
-// Helper to map DB columns (snake_case) to Employee type (camelCase)
-const mapDbToEmployee = (record: any): Employee => {
-  return enrichEmployee(
-    {
-      id: record.id,
-      firstName: record.first_name,
-      lastName: record.last_name,
-      gender: record.gender,
-      country: record.country,
-      role: record.role,
-      statusVR: record.status_vr,
-      dateOfBirth: record.date_of_birth,
-      startDate: record.start_date,
-      // Calculated fields initialized to 0/null, enriched later
-      totalExperienceMonths: 0,
-      monthsToNextRaise: null,
-      performanceRating: record.performance_rating,
-      languages: record.languages || [],
-      customFields: record.custom_fields || {},
-    },
-    DEFAULT_SETTINGS
-  );
+/**
+ * Load employees from localStorage
+ */
+const loadFromStorage = (): Employee[] => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch (error) {
+    console.error('Failed to load employees from localStorage:', error);
+  }
+  return [];
 };
 
-// Helper to map Employee type to DB columns
-const mapEmployeeToDb = (employee: Partial<Employee>) => {
-  return {
-    id: employee.id,
-    first_name: employee.firstName,
-    last_name: employee.lastName,
-    gender: employee.gender,
-    country: employee.country,
-    role: employee.role,
-    status_vr: employee.statusVR,
-    date_of_birth: employee.dateOfBirth,
-    start_date: employee.startDate,
-    performance_rating: employee.performanceRating,
-    languages: employee.languages,
-    custom_fields: employee.customFields,
-  };
+/**
+ * Save employees to localStorage
+ */
+const saveToStorage = (employees: Employee[]): void => {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(employees));
+  } catch (error) {
+    console.error('Failed to save employees to localStorage:', error);
+  }
 };
 
 export const EmployeeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -63,201 +49,61 @@ export const EmployeeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [isLoading, setIsLoading] = useState(true);
   const { showToast } = useToast();
 
-  const loadEmployees = useCallback(async () => {
+  // Load employees on mount
+  useEffect(() => {
     setIsLoading(true);
-    try {
-      const { data, error } = await supabase.from('employees').select('*');
-      if (error) {
-        console.error('Error fetching employees:', error);
-        // Fallback: load initial data so UI isn't empty
-        console.warn('Fallback: Loading initial data due to DB error.');
-        const validEmployees = INITIAL_EMPLOYEES.filter(e => {
-             if (!e.firstName || !e.lastName) {
-                 console.warn('Skipping invalid employee in fallback:', e);
-                 return false;
-             }
-             return true;
-        });
-        console.log(`Loaded ${validEmployees.length} employees from authoritative source (Fallback mode).`);
-        setEmployees(validEmployees.map(e => enrichEmployee(e, DEFAULT_SETTINGS)));
-      } else if (data) {
-        // Prepare for sync: "Insert or upsert all employees"
-        const existingEmployees = data.map(mapDbToEmployee);
-        const updates: any[] = [];
-        const inserts: any[] = [];
-        let insertedCount = 0;
-        let updatedCount = 0;
-
-        for (const initialEmp of INITIAL_EMPLOYEES) {
-          // Validate: check for missing name
-          if (!initialEmp.firstName || !initialEmp.lastName) {
-            console.warn('Skipping employee with missing name:', initialEmp);
-            continue;
-          }
-
-          const match = existingEmployees.find(
-            (e) =>
-              e.firstName.toLowerCase() === initialEmp.firstName.toLowerCase() &&
-              e.lastName.toLowerCase() === initialEmp.lastName.toLowerCase()
-          );
-
-          const dbRecord = mapEmployeeToDb(initialEmp);
-          const { id: _, ...recordData } = dbRecord; // Remove placeholder ID
-
-          if (match) {
-            // Update existing
-            // Check if data is different? For now, we force upsert as requested "Insert or upsert all"
-            // We use the MATCH ID
-            updates.push({ ...recordData, id: match.id });
-          } else {
-            // Insert new
-            inserts.push(recordData);
-          }
-        }
-
-        // Perform inserts
-        if (inserts.length > 0) {
-          const { data: insertedData, error: insertError } = await supabase
-            .from('employees')
-            .insert(inserts)
-            .select();
-
-          if (insertError) {
-            console.error('Error inserting new employees:', insertError);
-          } else if (insertedData) {
-            insertedCount = insertedData.length;
-          }
-        }
-
-        // Perform updates
-        // Supabase upsert can work if we provide ID.
-        // We can do bulk upsert if we have IDs.
-        if (updates.length > 0) {
-          const { data: updatedData, error: updateError } = await supabase
-            .from('employees')
-            .upsert(updates) // Upsert uses primary key (id) to update
-            .select();
-
-          if (updateError) {
-            console.error('Error updating existing employees:', updateError);
-          } else if (updatedData) {
-            updatedCount = updatedData.length;
-          }
-        }
-
-        if (insertedCount > 0 || updatedCount > 0) {
-          console.log(`Sync complete. Inserted: ${insertedCount}, Updated: ${updatedCount}`);
-          // Reload to get fresh state
-          const { data: refreshedData } = await supabase.from('employees').select('*');
-          if (refreshedData) {
-            setEmployees(refreshedData.map(mapDbToEmployee));
-          }
-        } else {
-            setEmployees(existingEmployees);
-        }
-      } else {
-        // Fallback for when Supabase fails (e.g. no connection), maybe use local storage or just memory
-        console.warn('Could not fetch from Supabase. Using INITIAL_EMPLOYEES directly if empty.');
-        setEmployees(INITIAL_EMPLOYEES.map(e => enrichEmployee(e, DEFAULT_SETTINGS)));
-      }
-    } catch (err) {
-      console.error('Unexpected error loading employees:', err);
-      // Fallback in case of error
-      setEmployees(INITIAL_EMPLOYEES.map(e => enrichEmployee(e, DEFAULT_SETTINGS)));
-    } finally {
-      setIsLoading(false);
+    const stored = loadFromStorage();
+    if (stored.length > 0) {
+      setEmployees(stored);
+    } else {
+      // Initialize with seed data
+      setEmployees(INITIAL_EMPLOYEES);
+      saveToStorage(INITIAL_EMPLOYEES);
     }
+    setIsLoading(false);
   }, []);
 
+  // Persist changes to localStorage
   useEffect(() => {
-    loadEmployees();
-  }, [loadEmployees]);
+    if (!isLoading && employees.length > 0) {
+      saveToStorage(employees);
+    }
+  }, [employees, isLoading]);
 
-  const addEmployee = useCallback(async (input: Partial<Employee> | Employee) => {
-    const base: Employee = {
-      id: input.id ?? crypto.randomUUID(),
+  const addEmployee = useCallback((input: Partial<Employee>) => {
+    const newEmployee: Employee = {
+      id: crypto.randomUUID(),
       firstName: input.firstName ?? '',
       lastName: input.lastName ?? '',
-      gender: input.gender ?? 'Other',
+      gender: input.gender ?? 'Unspecified',
       country: input.country ?? '',
       role: input.role ?? '',
-      statusVR: input.statusVR ?? 'VR0',
+      vrRate: input.vrRate ?? 'VR0',
       dateOfBirth: input.dateOfBirth ?? new Date().toISOString().split('T')[0],
       startDate: input.startDate ?? new Date().toISOString().split('T')[0],
-      totalExperienceMonths: 0,
-      monthsToNextRaise: null,
       performanceRating: input.performanceRating ?? 3,
       languages: input.languages ?? [],
+      status: input.status ?? 'Active',
       customFields: input.customFields ?? {},
     };
 
-    try {
-      const dbRecord = mapEmployeeToDb(base);
-      const { error } = await supabase.from('employees').insert([dbRecord]);
-      if (error) {
-        console.error('Error adding employee to DB:', error);
-        showToast('Failed to add employee: ' + error.message, 'error');
-      } else {
-        const enriched = enrichEmployee(base, DEFAULT_SETTINGS);
-        setEmployees((prev) => [...prev, enriched]);
-        showToast('Employee added successfully', 'success');
-      }
-    } catch (err) {
-      console.error('Unexpected error adding employee:', err);
-      showToast('Unexpected error adding employee', 'error');
-    }
+    setEmployees((prev) => [...prev, newEmployee]);
+    showToast('Employee added successfully', 'success');
   }, [showToast]);
 
-  const updateEmployee = useCallback(async (employee: Employee) => {
-    const enriched = enrichEmployee(employee, DEFAULT_SETTINGS);
-
-    try {
-      const dbRecord = mapEmployeeToDb(employee);
-      // We don't update ID
-      const { id, ...updates } = dbRecord;
-
-      const { error } = await supabase.from('employees').update(updates).eq('id', employee.id);
-      if (error) {
-        console.error('Error updating employee in DB:', error);
-        showToast('Failed to update employee: ' + error.message, 'error');
-      } else {
-        setEmployees((prev) => prev.map((e) => (e.id === employee.id ? enriched : e)));
-        showToast('Employee updated successfully', 'success');
-      }
-    } catch (err) {
-      console.error('Unexpected error updating employee:', err);
-      showToast('Unexpected error updating employee', 'error');
-    }
+  const updateEmployee = useCallback((employee: Employee) => {
+    setEmployees((prev) => prev.map((e) => (e.id === employee.id ? employee : e)));
+    showToast('Employee updated successfully', 'success');
   }, [showToast]);
 
-  const deleteEmployee = useCallback(async (id: string) => {
-    try {
-      // First delete associated vacations to avoid FK constraints
-      const { error: vacationError } = await supabase.from('vacations').delete().eq('employee_id', id);
-      if (vacationError) {
-          console.error('Error deleting employee vacations:', vacationError);
-          // We can proceed to try deleting employee, but it might fail. Warn user.
-          showToast('Warning: Failed to clear employee records. Deletion might fail.', 'info');
-      }
-
-      const { error } = await supabase.from('employees').delete().eq('id', id);
-      if (error) {
-        console.error('Error deleting employee from DB:', error);
-        showToast('Failed to delete employee: ' + error.message, 'error');
-      } else {
-        setEmployees((prev) => prev.filter((e) => e.id !== id));
-        showToast('Employee deleted successfully', 'success');
-      }
-    } catch (err) {
-      console.error('Unexpected error deleting employee:', err);
-      showToast('Unexpected error deleting employee', 'error');
-    }
+  const deleteEmployee = useCallback((id: string) => {
+    setEmployees((prev) => prev.filter((e) => e.id !== id));
+    showToast('Employee deleted successfully', 'success');
   }, [showToast]);
 
   const value: EmployeeStore = {
     employees,
     isLoading,
-    loadEmployees,
     addEmployee,
     updateEmployee,
     deleteEmployee,

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { Employee, ColumnDefinition } from '../types';
-import { Edit, AlertCircle, Plus, X, Save, Trash2, Search, Info, Calendar } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Employee, ColumnDefinition, VRRate, Gender } from '../types';
+import { Edit, Plus, X, Save, Trash2, Search, Info, Calendar } from 'lucide-react';
 import { formatEmployeeName } from '../utils/experience';
 import { LanguageInput } from './LanguageInput';
 
@@ -8,8 +8,8 @@ interface EmployeeListProps {
   employees: Employee[];
   columns: ColumnDefinition[];
   onUpdate: (employee: Employee) => void;
-  onAdd: (employee: Employee) => void;
-  onRemove: (id: string) => Promise<void> | void;
+  onAdd: (employee: Partial<Employee>) => void;
+  onRemove: (id: string) => void;
 }
 
 export const EmployeeList: React.FC<EmployeeListProps> = ({ employees, columns, onUpdate, onAdd, onRemove }) => {
@@ -43,22 +43,32 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({ employees, columns, 
     return emp.customFields?.[colId] ?? '-';
   };
 
-  const EMPTY_EMPLOYEE: Employee = {
-    id: '',
+  const EMPTY_EMPLOYEE: Partial<Employee> = {
     firstName: '',
     lastName: '',
-    gender: 'Other',
+    gender: 'Unspecified',
     country: '',
     role: '',
-    statusVR: 'VR0',
+    vrRate: 'VR0',
     dateOfBirth: '',
     startDate: new Date().toISOString().split('T')[0],
-    totalExperienceMonths: 0,
-    monthsToNextRaise: null,
     performanceRating: 3,
     languages: [],
+    status: 'Active',
     customFields: {},
   };
+
+  // Handle Escape key to close modals
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (deletingId) setDeletingId(null);
+        else if (editingId || isAdding) handleCloseEdit();
+      }
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [deletingId, editingId, isAdding]);
 
   return (
     <>
@@ -66,7 +76,7 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({ employees, columns, 
         <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4">
           <div>
             <h2 className="text-xl font-bold text-slate-800">Employee Directory</h2>
-            <p className="text-slate-500 text-sm">Track detailed stats, raise schedules, and personal info.</p>
+            <p className="text-slate-500 text-sm">Manage employee records and details.</p>
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
             <div className="relative flex-1 sm:w-64">
@@ -95,7 +105,7 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({ employees, columns, 
                 <th className="px-6 py-4">Employee</th>
                 <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4">Dates</th>
-                <th className="px-6 py-4">Experience</th>
+                <th className="px-6 py-4">Tenure</th>
                 {columns
                   .filter((c) => !c.isSystem)
                   .map((col) => (
@@ -139,10 +149,10 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({ employees, columns, 
                         {employee.gender}
                       </span>
                       <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100 w-fit">
-                        {employee.statusVR}
+                        {employee.vrRate}
                       </span>
                       <span className="inline-flex items-center gap-1 text-[10px] text-slate-400">
-                        <Info size={12} /> Perf: {employee.performanceRating}/5
+                        <Info size={12} /> Perf: {employee.performanceRating || 3}/5
                       </span>
                     </div>
                   </td>
@@ -153,15 +163,7 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({ employees, columns, 
                   <td className="px-6 py-4">
                     <div className="flex flex-col gap-1 text-xs">
                       <span className="text-slate-600">
-                        Total: <span className="font-bold text-slate-800">{employee.totalExperienceMonths} mo</span>
-                      </span>
-                      <span className="text-slate-400">
-                        Next Raise:{' '}
-                        {employee.inRaiseWindow ? (
-                          <span className="text-amber-600 font-bold">NOW</span>
-                        ) : (
-                          `${employee.monthsToNextRaise ?? 'Max'} mo`
-                        )}
+                        <span className="font-bold text-slate-800">{employee.tenureMonths?.toFixed(1) || 0} mo</span>
                       </span>
                     </div>
                   </td>
@@ -177,12 +179,14 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({ employees, columns, 
                       <button
                         onClick={() => handleEditClick(employee.id)}
                         className="p-2 hover:bg-white rounded-full text-slate-400 hover:text-indigo-600 hover:shadow-sm transition-all border border-transparent hover:border-slate-100"
+                        title="Edit employee"
                       >
                         <Edit size={16} />
                       </button>
                       <button
                         onClick={() => setDeletingId(employee.id)}
                         className="p-2 hover:bg-white rounded-full text-slate-400 hover:text-rose-600 hover:shadow-sm transition-all border border-transparent hover:border-slate-100"
+                        title="Delete employee"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -217,15 +221,15 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({ employees, columns, 
 
       {isAdding && (
         <EditEmployeeModal
-          employee={EMPTY_EMPLOYEE}
+          employee={EMPTY_EMPLOYEE as Employee}
           columns={columns}
           onClose={handleCloseEdit}
           onSave={(newEmp) => {
-            const empWithId = { ...newEmp, id: crypto.randomUUID() };
-            onAdd(empWithId);
+            onAdd(newEmp);
             handleCloseEdit();
           }}
           title="Add New Employee"
+          isNew
         />
       )}
 
@@ -248,10 +252,10 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({ employees, columns, 
                 Cancel
               </button>
               <button
-                onClick={async () => {
+                onClick={() => {
                   if (deletingId) {
                     setIsDeleting(true);
-                    await onRemove(deletingId);
+                    onRemove(deletingId);
                     setIsDeleting(false);
                     setDeletingId(null);
                   }
@@ -275,9 +279,10 @@ interface EditEmployeeModalProps {
   onClose: () => void;
   onSave: (emp: Employee) => void;
   title?: string;
+  isNew?: boolean;
 }
 
-const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ employee, columns, onClose, onSave, title }) => {
+const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ employee, columns, onClose, onSave, title, isNew }) => {
   const [formData, setFormData] = useState<Employee>({ ...employee });
   const [error, setError] = useState<string | null>(null);
 
@@ -307,9 +312,8 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ employee, columns
 
     const cleaned: Employee = {
       ...formData,
-      performanceRating: Math.min(5, Math.max(1, Number(formData.performanceRating) || 1)),
-      monthsToNextRaise: formData.monthsToNextRaise ?? null,
-      totalExperienceMonths: formData.totalExperienceMonths || 0,
+      id: isNew ? crypto.randomUUID() : formData.id,
+      performanceRating: Math.min(5, Math.max(1, Number(formData.performanceRating) || 3)),
     };
 
     onSave(cleaned);
@@ -373,6 +377,7 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ employee, columns
                   <option value="Male">Male</option>
                   <option value="Female">Female</option>
                   <option value="Other">Other</option>
+                  <option value="Unspecified">Unspecified</option>
                 </select>
               </div>
               <div>
@@ -420,11 +425,11 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ employee, columns
                 />
               </div>
               <div>
-                <label htmlFor="statusVR" className="block text-xs font-medium text-slate-500 mb-1">VR Status</label>
+                <label htmlFor="vrRate" className="block text-xs font-medium text-slate-500 mb-1">VR Rate</label>
                 <select
-                  id="statusVR"
-                  name="statusVR"
-                  value={formData.statusVR}
+                  id="vrRate"
+                  name="vrRate"
+                  value={formData.vrRate}
                   onChange={handleChange}
                   className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none appearance-none"
                 >
@@ -444,7 +449,7 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ employee, columns
                   min={1}
                   max={5}
                   name="performanceRating"
-                  value={formData.performanceRating}
+                  value={formData.performanceRating || 3}
                   onChange={handleChange}
                   className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-400"
                 />

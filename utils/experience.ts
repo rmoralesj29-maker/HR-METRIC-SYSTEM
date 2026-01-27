@@ -1,12 +1,18 @@
-import { Employee, SystemSettings, DEFAULT_SETTINGS } from '../types';
+import { Employee } from '../types';
 
-const daysInMonth = 30.437;
+const DAYS_IN_MONTH = 30.437;
 
+/**
+ * Calculate months between two dates
+ */
 const getMonthsBetween = (from: Date, to: Date): number => {
   const diffDays = (to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24);
-  return Math.max(0, diffDays / daysInMonth);
+  return Math.max(0, diffDays / DAYS_IN_MONTH);
 };
 
+/**
+ * Calculate age from date of birth
+ */
 const calculateAge = (dateOfBirth: string, today = new Date()): number => {
   const dob = new Date(dateOfBirth);
   let age = today.getFullYear() - dob.getFullYear();
@@ -17,33 +23,28 @@ const calculateAge = (dateOfBirth: string, today = new Date()): number => {
   return age;
 };
 
-export const formatEmployeeName = (employee: Employee): string => `${employee.firstName} ${employee.lastName}`.trim();
+/**
+ * Format employee full name
+ */
+export const formatEmployeeName = (employee: Employee): string => {
+  return `${employee.firstName} ${employee.lastName}`.trim();
+};
 
+/**
+ * Enrich employee with derived fields (age, tenure)
+ * These are calculated at runtime, not stored
+ * VR Rate is stored explicitly and NOT derived from tenure
+ */
 export const enrichEmployee = (
   employee: Employee,
-  settings: SystemSettings = DEFAULT_SETTINGS,
-  today = new Date()
+  asOfDate = new Date()
 ): Employee => {
   const startDate = new Date(employee.startDate);
-  const tenureMonths = getMonthsBetween(startDate, today);
-
-  // Tenure is now strictly time since start date. No previous experience added.
-  const totalExperienceMonths = Math.max(0, Number(tenureMonths.toFixed(1)));
-
-  // "Raise Due" logic is removed, but we can still show months to next milestone for information
-  const nextMilestone = settings.raiseMilestones.find((milestone) => milestone > totalExperienceMonths) ?? null;
-  const monthsToNextRaise = nextMilestone !== null ? Math.max(0, Number((nextMilestone - totalExperienceMonths).toFixed(1))) : null;
-
-  // VR Status is no longer calculated/inferred. It uses the stored value.
-  // We ensure it defaults to VR0 if missing (though DB default covers this).
-  const statusVR = employee.statusVR || 'VR0';
+  const tenureMonths = Number(getMonthsBetween(startDate, asOfDate).toFixed(1));
 
   return {
     ...employee,
-    age: calculateAge(employee.dateOfBirth, today),
-    totalExperienceMonths,
-    monthsToNextRaise,
-    inRaiseWindow: false, // "Raise Due" feature removed
-    statusVR,
+    age: calculateAge(employee.dateOfBirth, asOfDate),
+    tenureMonths: Math.max(0, tenureMonths),
   };
 };

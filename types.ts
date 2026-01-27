@@ -1,59 +1,53 @@
-export type Gender = 'Male' | 'Female' | 'Other' | string;
-export type StatusVR = 'VR0' | 'VR1' | 'VR2' | 'VR3' | 'VR4' | 'VR5' | string;
+// Gender type - strict enum
+export type Gender = 'Male' | 'Female' | 'Other' | 'Unspecified';
 
-// Enum for backward compatibility if needed, though HEAD uses string
-export enum VRRate {
-  VR0 = 'VR0',
-  VR1 = 'VR1',
-  VR2 = 'VR2',
-  VR3 = 'VR3',
-  VR4 = 'VR4',
-  VR5 = 'VR5',
-}
+// VR Rate type - strict enum
+export type VRRate = 'VR0' | 'VR1' | 'VR2' | 'VR3' | 'VR4' | 'VR5';
 
+// Employee status
+export type EmployeeStatus = 'Active' | 'Inactive';
+
+/**
+ * Core Employee interface - Single Source of Truth
+ * All calculations (age, tenure) are derived, not stored
+ */
 export interface Employee {
   id: string;
-  // HEAD fields
   firstName: string;
   lastName: string;
+  dateOfBirth: string; // ISO date string YYYY-MM-DD
   gender: Gender;
   country: string;
   role: string;
-  statusVR: StatusVR;
-  dateOfBirth: string; // ISO date string YYYY-MM-DD
-  startDate: string; // ISO date string YYYY-MM-DD
-  // previousExperienceMonths removed
-  totalExperienceMonths: number;
-  monthsToNextRaise: number | null;
-  // sickDaysYTD removed
-  performanceRating: number; // 1-5
-  languages: string[];
+  startDate: string; // ISO date string YYYY-MM-DD - company start date ONLY
+  vrRate: VRRate; // Stored explicitly, drives VR charts
+  languages: string[]; // Normalized array
+  performanceRating?: number; // Optional 1-5 scale
+  status?: EmployeeStatus;
   customFields?: Record<string, string | number | null>;
-  inRaiseWindow?: boolean;
+
+  // Derived fields (calculated at runtime, not stored)
   age?: number;
-
-  // Fields from other branch for compatibility
-  // name: string; // Use firstName + lastName
-  // dob: string; // Use dateOfBirth
-  // vrRate: VRRate; // Use statusVR
-  // customData: any; // Use customFields
+  tenureMonths?: number;
 }
 
-// Keeping this type alias for compatibility with other branch's components if they use it explicitly
-export interface CalculatedEmployeeStats extends Employee {
-  totalDaysWorked: number;
-  currentMonthsWorked: number;
-  nextMilestone: number | null;
-}
-
+/**
+ * Chart data interface for Recharts
+ */
 export interface ChartData {
   name: string;
   value: number;
   fill?: string;
 }
 
+/**
+ * Column types for custom fields
+ */
 export type ColumnType = 'text' | 'number' | 'date' | 'select';
 
+/**
+ * Column definition for employee custom fields
+ */
 export interface ColumnDefinition {
   id: string;
   label: string;
@@ -62,75 +56,67 @@ export interface ColumnDefinition {
   isSystem?: boolean; // System columns cannot be deleted
 }
 
+/**
+ * Monthly sick data - company-wide, not per employee
+ */
 export interface MonthlySickData {
   month: string;
   value: number;
 }
 
+/**
+ * System settings interface
+ */
 export interface SystemSettings {
   adultAgeThreshold: number; // Default 22
-  raiseMilestones: number[]; // Default [6, 12, 36, 60]
-  vrThresholds: {
-    vr0: number; // 0
-    vr1: number; // 7
-    vr2: number; // 13
-    vr3: number; // 37
-    vr4: number; // 61
-  };
-  raiseWindowDays: number; // Default 15 (approx 0.5 months)
   showCountryStats: boolean;
   showLanguageStats: boolean;
-  // New Global Stats
-  /** @deprecated use sickDaysByYear instead */
-  monthlySickDays: MonthlySickData[];
+  // Global sick days - company-wide, by year and month
   sickDaysByYear: Record<number, MonthlySickData[]>;
 }
 
-export interface Vacation {
-  id: string;
-  employeeId: string;
-  startDate: string; // ISO date string YYYY-MM-DD
-  endDate: string; // ISO date string YYYY-MM-DD
-  days: number;
-  type: 'Vacation' | 'Sick' | 'Personal' | 'Other';
-  status: 'Pending' | 'Approved' | 'Rejected';
-  notes?: string;
-}
+/**
+ * Default monthly sick days template
+ */
+const createDefaultMonthlySickDays = (): MonthlySickData[] => [
+  { month: 'Jan', value: 0 },
+  { month: 'Feb', value: 0 },
+  { month: 'Mar', value: 0 },
+  { month: 'Apr', value: 0 },
+  { month: 'May', value: 0 },
+  { month: 'Jun', value: 0 },
+  { month: 'Jul', value: 0 },
+  { month: 'Aug', value: 0 },
+  { month: 'Sep', value: 0 },
+  { month: 'Oct', value: 0 },
+  { month: 'Nov', value: 0 },
+  { month: 'Dec', value: 0 },
+];
 
+/**
+ * Default system settings
+ */
 export const DEFAULT_SETTINGS: SystemSettings = {
   adultAgeThreshold: 22,
-  raiseMilestones: [6, 12, 36, 60],
-  vrThresholds: {
-    vr0: 0,
-    vr1: 7,
-    vr2: 13,
-    vr3: 37,
-    vr4: 61,
-  },
-  raiseWindowDays: 15,
   showCountryStats: true,
   showLanguageStats: true,
-  monthlySickDays: [],
   sickDaysByYear: {
-    2025: [
-      { month: 'Jan', value: 0 },
-      { month: 'Feb', value: 0 },
-      { month: 'Mar', value: 0 },
-      { month: 'Apr', value: 0 },
-      { month: 'May', value: 0 },
-      { month: 'Jun', value: 0 },
-      { month: 'Jul', value: 0 },
-      { month: 'Aug', value: 0 },
-      { month: 'Sep', value: 0 },
-      { month: 'Oct', value: 0 },
-      { month: 'Nov', value: 0 },
-      { month: 'Dec', value: 0 },
-    ]
+    2025: createDefaultMonthlySickDays(),
+    2026: createDefaultMonthlySickDays(),
+    2027: createDefaultMonthlySickDays(),
   },
 };
 
+/**
+ * Default column definitions
+ */
 export const DEFAULT_COLUMNS: ColumnDefinition[] = [
   { id: 'role', label: 'Role', type: 'text', isSystem: true },
   { id: 'country', label: 'Country', type: 'text', isSystem: true },
   { id: 'languages', label: 'Languages', type: 'text', isSystem: true },
 ];
+
+/**
+ * Helper to create default monthly sick days for a new year
+ */
+export const getDefaultMonthlySickDays = createDefaultMonthlySickDays;
