@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { SystemSettings, DEFAULT_SETTINGS } from '../types';
-import { supabase } from './supabaseClient';
+import { storage } from './storage';
 import { useToast } from './ToastContext';
 
 interface SettingsStore {
@@ -19,39 +19,15 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const loadSettings = useCallback(async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.from('settings').select('settings').eq('id', 1).single();
-
-      if (error) {
-        if (error.code === 'PGRST116') {
-            // No rows found, verify connection or RLS?
-            // Fallback to defaults
-             console.warn('Settings not found in DB, using defaults.');
-        } else {
-             console.error('Error fetching settings:', error);
-             showToast('Failed to load settings', 'error');
-        }
-        // Try local storage as fallback or just default
-        const local = localStorage.getItem('etrack_settings');
-        if (local) {
-            try {
-                const parsed = JSON.parse(local);
-                setSettings({ ...DEFAULT_SETTINGS, ...parsed });
-            } catch (e) {
-                setSettings(DEFAULT_SETTINGS);
-            }
-        } else {
-             setSettings(DEFAULT_SETTINGS);
-        }
-      } else if (data) {
-        // Merge with default settings to ensure structure
-        setSettings((prev) => ({
-            ...DEFAULT_SETTINGS,
-            ...data.settings
-        }));
-      }
+      const storedSettings = storage.getSettings();
+      // Merge with default to ensure structure if keys are missing in storage
+      setSettings({
+        ...DEFAULT_SETTINGS,
+        ...storedSettings
+      });
     } catch (err) {
-      console.error('Unexpected error loading settings:', err);
-      // Fallback
+      console.error('Error loading settings:', err);
+      showToast('Failed to load settings', 'error');
       setSettings(DEFAULT_SETTINGS);
     } finally {
       setIsLoading(false);
@@ -60,30 +36,23 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   useEffect(() => {
     loadSettings();
+
+    // Subscribe to external changes
+    const unsubscribe = storage.subscribe<SystemSettings>(storage.KEYS.SETTINGS, (newData) => {
+      // Merge with defaults to be safe
+      setSettings({ ...DEFAULT_SETTINGS, ...newData });
+    });
+    return unsubscribe;
   }, [loadSettings]);
 
   const updateSettings = useCallback(async (newSettings: SystemSettings) => {
-    // Optimistic update
     setSettings(newSettings);
-    // Also update local storage for redundancy/offline
-    localStorage.setItem('etrack_settings', JSON.stringify(newSettings));
-
     try {
-      const { error } = await supabase
-        .from('settings')
-        .update({ settings: newSettings, updated_at: new Date().toISOString() })
-        .eq('id', 1);
-
-      if (error) {
-        console.error('Error updating settings in DB:', error);
-        showToast('Failed to save settings: ' + error.message, 'error');
-        // Revert? For now, we keep optimistic state but warn.
-      } else {
-        showToast('Settings saved successfully', 'success');
-      }
+      storage.setSettings(newSettings);
+      showToast('Settings saved successfully', 'success');
     } catch (err) {
-      console.error('Unexpected error saving settings:', err);
-      showToast('Unexpected error saving settings', 'error');
+      console.error('Error saving settings:', err);
+      showToast('Failed to save settings', 'error');
     }
   }, [showToast]);
 

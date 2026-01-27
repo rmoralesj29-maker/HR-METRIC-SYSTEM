@@ -12,7 +12,11 @@ export const LanguageInput: React.FC<LanguageInputProps> = ({ value, onChange })
   const addTags = (input: string) => {
     const newTags = input
       .split(/[,]+/) // Split by comma
-      .map((tag) => tag.trim())
+      .map((tag) => {
+          const trimmed = tag.trim();
+          // Normalize to Title Case
+          return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+      })
       .filter((tag) => tag.length > 0);
 
     // Deduplicate and merge

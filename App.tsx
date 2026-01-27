@@ -11,11 +11,15 @@ import { useEmployeeStore } from './utils/employeeStore';
 import { useSettingsStore } from './utils/settingsStore';
 import { useGlobalContext } from './utils/GlobalContext';
 import { enrichEmployee } from './utils/experience';
+import { storage } from './utils/storage';
+import { useToast } from './utils/ToastContext';
+import { Download, Upload, RotateCcw } from 'lucide-react';
 
 const App: React.FC = () => {
   const { employees, addEmployee, updateEmployee, deleteEmployee } = useEmployeeStore();
   const { settings: systemSettings, updateSettings: setSystemSettings } = useSettingsStore();
   const { asOfDate, setAsOfDate } = useGlobalContext();
+  const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<'dashboard' | 'employees' | 'vacations' | 'sickTracker' | 'settings'>('employees');
 
   const [customColumns, setCustomColumns] = useState<ColumnDefinition[]>(() => {
@@ -39,6 +43,45 @@ const App: React.FC = () => {
 
   const handleTabChange = (tab: 'dashboard' | 'employees' | 'vacations' | 'sickTracker' | 'settings') => {
     setActiveTab(tab);
+  };
+
+  const handleExport = () => {
+    const data = storage.exportAllData();
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `hr-backup-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast('Data exported successfully', 'success');
+  };
+
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const json = event.target?.result as string;
+        const success = storage.importAllData(json);
+        if (success) {
+          showToast('Data imported successfully. Reloading...', 'success');
+          // Allow stores to react to changes via subscription, but hard reload ensures clean state
+          setTimeout(() => window.location.reload(), 1000);
+        } else {
+          showToast('Failed to import data. Invalid format.', 'error');
+        }
+      } catch (err) {
+        showToast('Error reading file', 'error');
+      }
+    };
+    reader.readAsText(file);
+    // Reset input
+    e.target.value = '';
   };
 
   return (
@@ -116,13 +159,18 @@ const App: React.FC = () => {
         </nav>
 
         <div className="p-4 border-t border-slate-100">
-          <button
-            className="flex items-center gap-2 text-sm text-slate-500 rounded-lg px-3 py-2 cursor-not-allowed"
-            title="Coming soon"
-            disabled
-          >
-            <LogOut size={16} /> Sign Out
-          </button>
+          <div className="space-y-2">
+            <button
+              onClick={handleExport}
+              className="w-full flex items-center gap-2 text-sm text-slate-600 hover:text-indigo-600 rounded-lg px-3 py-2 hover:bg-slate-50 transition-colors"
+            >
+              <Download size={16} /> Export Data
+            </button>
+            <label className="w-full flex items-center gap-2 text-sm text-slate-600 hover:text-indigo-600 rounded-lg px-3 py-2 hover:bg-slate-50 transition-colors cursor-pointer">
+              <Upload size={16} /> Import Data
+              <input type="file" accept=".json" onChange={handleImport} className="hidden" />
+            </label>
+          </div>
         </div>
       </aside>
 
@@ -159,13 +207,22 @@ const App: React.FC = () => {
               <label htmlFor="asOfDate" className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">
                 As Of Date
               </label>
-              <input
-                 id="asOfDate"
-                 type="date"
-                 value={asOfDate.toISOString().split('T')[0]}
-                 onChange={(e) => setAsOfDate(new Date(e.target.value))}
-                 className="bg-white border border-slate-200 text-slate-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5 outline-none shadow-sm"
-              />
+              <div className="flex items-center gap-2">
+                <button
+                    onClick={() => setAsOfDate(new Date())}
+                    title="Reset to Today"
+                    className="p-2.5 bg-white border border-slate-200 text-slate-500 hover:text-indigo-600 rounded-lg hover:border-indigo-300 transition-colors shadow-sm"
+                >
+                    <RotateCcw size={16} />
+                </button>
+                <input
+                    id="asOfDate"
+                    type="date"
+                    value={asOfDate.toISOString().split('T')[0]}
+                    onChange={(e) => setAsOfDate(new Date(e.target.value))}
+                    className="bg-white border border-slate-200 text-slate-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5 outline-none shadow-sm"
+                />
+              </div>
             </div>
           </header>
 

@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { Vacation } from '../types';
-import { supabase } from './supabaseClient';
+import { storage } from './storage';
 import { useToast } from './ToastContext';
 
 interface VacationStore {
@@ -13,34 +13,6 @@ interface VacationStore {
 
 const VacationContext = createContext<VacationStore | undefined>(undefined);
 
-// Helper to map DB columns (snake_case) to Vacation type (camelCase)
-const mapDbToVacation = (record: any): Vacation => {
-  return {
-    id: record.id,
-    employeeId: record.employee_id,
-    startDate: record.start_date,
-    endDate: record.end_date,
-    days: record.days,
-    type: record.type,
-    status: record.status,
-    notes: record.notes,
-  };
-};
-
-// Helper to map Vacation type to DB columns
-const mapVacationToDb = (vacation: Vacation) => {
-  return {
-    id: vacation.id,
-    employee_id: vacation.employeeId,
-    start_date: vacation.startDate,
-    end_date: vacation.endDate,
-    days: vacation.days,
-    type: vacation.type,
-    status: vacation.status,
-    notes: vacation.notes,
-  };
-};
-
 export const VacationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [vacations, setVacations] = useState<Vacation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -49,16 +21,11 @@ export const VacationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const loadVacations = useCallback(async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.from('vacations').select('*');
-      if (error) {
-        console.error('Error fetching vacations:', error);
-        showToast('Failed to load vacation records', 'error');
-      } else if (data) {
-        setVacations(data.map(mapDbToVacation));
-      }
+      const data = storage.getVacations();
+      setVacations(data);
     } catch (err) {
-      console.error('Unexpected error loading vacations:', err);
-      showToast('Unexpected error loading vacation records', 'error');
+      console.error('Error loading vacations:', err);
+      showToast('Failed to load vacation records', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -66,58 +33,49 @@ export const VacationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   useEffect(() => {
     loadVacations();
+
+    // Subscribe to external changes
+    const unsubscribe = storage.subscribe<Vacation[]>(storage.KEYS.VACATIONS, (newData) => {
+      setVacations(newData);
+    });
+    return unsubscribe;
   }, [loadVacations]);
 
   const addVacation = useCallback(async (vacation: Vacation) => {
     try {
-      const dbRecord = mapVacationToDb(vacation);
-      const { error } = await supabase.from('vacations').insert([dbRecord]);
-      if (error) {
-        console.error('Error adding vacation to DB:', error);
-        showToast('Failed to add record: ' + error.message, 'error');
-      } else {
-        setVacations((prev) => [...prev, vacation]);
-        showToast('Record added successfully', 'success');
-      }
+      const newVacations = [...vacations, vacation];
+      setVacations(newVacations);
+      storage.setVacations(newVacations);
+      showToast('Record added successfully', 'success');
     } catch (err) {
-      console.error('Unexpected error adding vacation:', err);
+      console.error('Error adding vacation:', err);
       showToast('Unexpected error adding record', 'error');
     }
-  }, [showToast]);
+  }, [vacations, showToast]);
 
   const updateVacation = useCallback(async (vacation: Vacation) => {
     try {
-      const dbRecord = mapVacationToDb(vacation);
-      const { id, ...updates } = dbRecord;
-      const { error } = await supabase.from('vacations').update(updates).eq('id', vacation.id);
-      if (error) {
-        console.error('Error updating vacation in DB:', error);
-        showToast('Failed to update record: ' + error.message, 'error');
-      } else {
-        setVacations((prev) => prev.map((v) => (v.id === vacation.id ? vacation : v)));
-        showToast('Record updated successfully', 'success');
-      }
+      const newVacations = vacations.map((v) => (v.id === vacation.id ? vacation : v));
+      setVacations(newVacations);
+      storage.setVacations(newVacations);
+      showToast('Record updated successfully', 'success');
     } catch (err) {
-      console.error('Unexpected error updating vacation:', err);
+      console.error('Error updating vacation:', err);
       showToast('Unexpected error updating record', 'error');
     }
-  }, [showToast]);
+  }, [vacations, showToast]);
 
   const deleteVacation = useCallback(async (id: string) => {
     try {
-      const { error } = await supabase.from('vacations').delete().eq('id', id);
-      if (error) {
-        console.error('Error deleting vacation from DB:', error);
-        showToast('Failed to delete record: ' + error.message, 'error');
-      } else {
-        setVacations((prev) => prev.filter((v) => v.id !== id));
-        showToast('Record deleted successfully', 'success');
-      }
+      const newVacations = vacations.filter((v) => v.id !== id);
+      setVacations(newVacations);
+      storage.setVacations(newVacations);
+      showToast('Record deleted successfully', 'success');
     } catch (err) {
-      console.error('Unexpected error deleting vacation:', err);
+      console.error('Error deleting vacation:', err);
       showToast('Unexpected error deleting record', 'error');
     }
-  }, [showToast]);
+  }, [vacations, showToast]);
 
   const value: VacationStore = {
     vacations,
