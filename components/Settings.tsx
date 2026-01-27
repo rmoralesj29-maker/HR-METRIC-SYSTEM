@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { SystemSettings, ColumnDefinition, Employee, DEFAULT_SETTINGS } from '../types';
-import { Plus, Trash2, Download, Table, Settings as SettingsIcon, Layout, Thermometer } from 'lucide-react';
+import { SystemSettings, ColumnDefinition, Employee } from '../types';
+import { Plus, Trash2, Download, Upload, Table, Settings as SettingsIcon, Layout, Database } from 'lucide-react';
+import { storage } from '../utils/storage';
+import { useToast } from '../utils/ToastContext';
 
 interface SettingsProps {
   settings: SystemSettings;
@@ -17,37 +19,13 @@ export const Settings: React.FC<SettingsProps> = ({
   onUpdateColumns,
   employees,
 }) => {
-  const [activeTab, setActiveTab] = useState<'rules' | 'columns' | 'export' | 'sickdays'>('rules');
-  const [selectedYear, setSelectedYear] = useState<number>(2025);
+  const [activeTab, setActiveTab] = useState<'rules' | 'columns' | 'data'>('rules');
   const [newColLabel, setNewColLabel] = useState('');
   const [newColType, setNewColType] = useState<'text' | 'number' | 'date'>('text');
+  const { showToast } = useToast();
 
   const handleRuleChange = (key: keyof SystemSettings, value: any) => {
     onUpdateSettings({ ...settings, [key]: value });
-  };
-
-  const handleVRThresholdChange = (key: keyof SystemSettings['vrThresholds'], value: number) => {
-    onUpdateSettings({
-      ...settings,
-      vrThresholds: { ...settings.vrThresholds, [key]: value },
-    });
-  };
-
-  const handleSickDayChange = (index: number, value: number) => {
-    const currentYearData =
-      settings.sickDaysByYear[selectedYear] ||
-      DEFAULT_SETTINGS.sickDaysByYear[2025].map((d) => ({ ...d, value: 0 }));
-
-    const newYearData = [...currentYearData];
-    newYearData[index] = { ...newYearData[index], value };
-
-    onUpdateSettings({
-      ...settings,
-      sickDaysByYear: {
-        ...settings.sickDaysByYear,
-        [selectedYear]: newYearData,
-      },
-    });
   };
 
   const handleAddColumn = () => {
@@ -67,7 +45,7 @@ export const Settings: React.FC<SettingsProps> = ({
     onUpdateColumns(customColumns.filter((c) => c.id !== id));
   };
 
-  const handleExport = () => {
+  const handleExportCSV = () => {
     const headers = [
       'ID',
       'First Name',
@@ -80,8 +58,6 @@ export const Settings: React.FC<SettingsProps> = ({
       'Gender',
       'Total Experience (Mo)',
       'VR Rate',
-      'In Raise Window',
-      'Months To Next Raise',
       ...customColumns.filter((c) => !c.isSystem).map((c) => c.label),
     ];
 
@@ -97,8 +73,6 @@ export const Settings: React.FC<SettingsProps> = ({
       e.gender,
       e.totalExperienceMonths,
       e.statusVR,
-      e.inRaiseWindow ? 'Yes' : 'No',
-      e.monthsToNextRaise ?? 'Max',
       ...customColumns.filter((c) => !c.isSystem).map((c) => e.customFields?.[c.id] || ''),
     ]);
 
@@ -114,6 +88,43 @@ export const Settings: React.FC<SettingsProps> = ({
     document.body.removeChild(link);
   };
 
+  const handleBackupJSON = () => {
+    const jsonString = storage.exportAllData();
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `hr_system_backup_${new Date().toISOString().split('T')[0]}.json`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('Backup created successfully', 'success');
+  };
+
+  const handleRestoreJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      if (content) {
+        if (confirm('Are you sure? This will overwrite all current data with the backup.')) {
+            const success = storage.importAllData(content);
+            if (success) {
+                showToast('Data restored successfully. Reloading...', 'success');
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                showToast('Failed to restore data. Invalid file format.', 'error');
+            }
+        }
+      }
+    };
+    reader.readAsText(file);
+    // Reset input
+    e.target.value = '';
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-100 min-h-[600px] flex flex-col md:flex-row overflow-hidden animate-fade-in">
       <div className="w-full md:w-64 bg-slate-50 border-r border-slate-100 p-4">
@@ -123,13 +134,7 @@ export const Settings: React.FC<SettingsProps> = ({
             onClick={() => setActiveTab('rules')}
             className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${activeTab === 'rules' ? 'bg-indigo-100 text-indigo-700' : 'text-slate-600 hover:bg-slate-100'}`}
           >
-            <SettingsIcon size={18} /> Rules & Formulas
-          </button>
-          <button
-            onClick={() => setActiveTab('sickdays')}
-            className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${activeTab === 'sickdays' ? 'bg-indigo-100 text-indigo-700' : 'text-slate-600 hover:bg-slate-100'}`}
-          >
-            <Thermometer size={18} /> Sick Days Tracker
+            <SettingsIcon size={18} /> Rules & Config
           </button>
           <button
             onClick={() => setActiveTab('columns')}
@@ -138,10 +143,10 @@ export const Settings: React.FC<SettingsProps> = ({
             <Table size={18} /> Data Fields
           </button>
           <button
-            onClick={() => setActiveTab('export')}
-            className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${activeTab === 'export' ? 'bg-indigo-100 text-indigo-700' : 'text-slate-600 hover:bg-slate-100'}`}
+            onClick={() => setActiveTab('data')}
+            className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${activeTab === 'data' ? 'bg-indigo-100 text-indigo-700' : 'text-slate-600 hover:bg-slate-100'}`}
           >
-            <Download size={18} /> Export
+            <Database size={18} /> Data Management
           </button>
         </nav>
       </div>
@@ -181,8 +186,7 @@ export const Settings: React.FC<SettingsProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
+              <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Adult Age Threshold</label>
                   <input
                     type="number"
@@ -190,90 +194,7 @@ export const Settings: React.FC<SettingsProps> = ({
                     onChange={(e) => handleRuleChange('adultAgeThreshold', parseInt(e.target.value))}
                     className="w-full bg-white text-slate-900 border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-400"
                   />
-                  <p className="text-xs text-slate-400 mt-1">Age where "Adult" VR logic applies (skips 6mo bump).</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Raise Alert Window (Days)</label>
-                  <input
-                    type="number"
-                    value={settings.raiseWindowDays}
-                    onChange={(e) => handleRuleChange('raiseWindowDays', parseInt(e.target.value))}
-                    className="w-full bg-white text-slate-900 border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-400"
-                  />
-                  <p className="text-xs text-slate-400 mt-1">Days before a raise to show alert.</p>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="text-sm font-semibold text-slate-900 mb-3">VR Experience Thresholds (Months)</h4>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  {(Object.keys(settings.vrThresholds) as Array<keyof SystemSettings['vrThresholds']>).map((key) => (
-                    <div key={key}>
-                      <label className="block text-xs font-medium text-slate-500 mb-1 uppercase">{key}</label>
-                      <input
-                        type="number"
-                        value={settings.vrThresholds[key]}
-                        onChange={(e) => handleVRThresholdChange(key, parseInt(e.target.value))}
-                        className="w-full bg-white text-slate-900 border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-400"
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'sickdays' && (
-          <div className="max-w-3xl">
-            <div className="mb-6 flex flex-col sm:flex-row justify-between items-start gap-4">
-              <div>
-                <h2 className="text-2xl font-bold text-slate-800 mb-2">Monthly Sick Days</h2>
-                <p className="text-slate-500">
-                  Manually input the total number of sick days recorded for the company each month. This data populates
-                  the "Sick Days Overview" chart on the dashboard.
-                </p>
-              </div>
-              <div className="flex bg-slate-100 rounded-lg p-1 gap-1 shrink-0">
-                {[2025, 2026, 2027].map((year) => (
-                  <button
-                    key={year}
-                    onClick={() => setSelectedYear(year)}
-                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                      selectedYear === year
-                        ? 'bg-white text-indigo-700 shadow-sm'
-                        : 'text-slate-500 hover:text-slate-700'
-                    }`}
-                  >
-                    {year}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                {(
-                  settings.sickDaysByYear[selectedYear] ||
-                  DEFAULT_SETTINGS.sickDaysByYear[2025].map((d) => ({ ...d, value: 0 }))
-                ).map((data, index) => (
-                  <div
-                    key={data.month}
-                    className="p-4 border-b border-r border-slate-100 last:border-r-0 hover:bg-slate-50 transition-colors"
-                  >
-                    <label className="block text-xs font-bold text-indigo-600 mb-2 uppercase">{data.month}</label>
-                    <div className="relative">
-                      <Thermometer size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input
-                        type="number"
-                        min="0"
-                        value={data.value}
-                        onChange={(e) => handleSickDayChange(index, parseInt(e.target.value) || 0)}
-                        className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                      />
-                    </div>
-                  </div>
-                ))}
+                  <p className="text-xs text-slate-400 mt-1">Age where "Adult" logic applies.</p>
               </div>
             </div>
           </div>
@@ -283,7 +204,7 @@ export const Settings: React.FC<SettingsProps> = ({
           <div className="max-w-3xl">
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-slate-800 mb-2">Data Schema</h2>
-              <p className="text-slate-500">Add or remove columns from the employee database. New fields will appear in the dashboard and employee list.</p>
+              <p className="text-slate-500">Add or remove columns from the employee database.</p>
             </div>
 
             <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-8">
@@ -359,21 +280,58 @@ export const Settings: React.FC<SettingsProps> = ({
           </div>
         )}
 
-        {activeTab === 'export' && (
-          <div className="max-w-2xl">
-            <h2 className="text-2xl font-bold text-slate-800 mb-2">Export Data</h2>
-            <p className="text-slate-500 mb-8">Download a complete CSV file of all employee records, including system calculated fields and your custom columns.</p>
+        {activeTab === 'data' && (
+          <div className="max-w-2xl space-y-8">
+            <div>
+                 <h2 className="text-2xl font-bold text-slate-800 mb-2">Data Management</h2>
+                 <p className="text-slate-500">Export your data for backup or import to restore from a previous point.</p>
+            </div>
 
-            <div className="bg-slate-50 p-8 rounded-xl border border-slate-200 text-center">
-              <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Table size={32} />
-              </div>
-              <h3 className="text-lg font-bold text-slate-800 mb-2">All Employee Records</h3>
-              <p className="text-slate-500 text-sm mb-6 max-w-sm mx-auto">Contains {employees.length} rows with {20 + customColumns.filter((c) => !c.isSystem).length} columns of data.</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Export CSV */}
+                <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 text-center flex flex-col items-center">
+                    <div className="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mb-4">
+                        <Table size={24} />
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-800 mb-1">Employee List (CSV)</h3>
+                    <p className="text-slate-500 text-sm mb-4">Download a spreadsheet of all employees.</p>
+                    <button onClick={handleExportCSV} className="mt-auto w-full bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg font-medium hover:bg-slate-100 transition-colors flex items-center justify-center gap-2">
+                        <Download size={16} /> Export CSV
+                    </button>
+                </div>
 
-              <button onClick={handleExport} className="bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200 flex items-center gap-2 mx-auto">
-                <Download size={20} /> Download CSV
-              </button>
+                 {/* Backup JSON */}
+                 <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 text-center flex flex-col items-center">
+                    <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-4">
+                        <Database size={24} />
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-800 mb-1">Full Backup (JSON)</h3>
+                    <p className="text-slate-500 text-sm mb-4">Save all app data (Employees, Settings, Sick Days).</p>
+                    <button onClick={handleBackupJSON} className="mt-auto w-full bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2">
+                        <Download size={16} /> Backup JSON
+                    </button>
+                </div>
+            </div>
+
+            <div className="border-t border-slate-200 pt-8">
+                 <div className="bg-amber-50 p-6 rounded-xl border border-amber-100">
+                    <div className="flex items-start gap-4">
+                        <div className="bg-amber-100 p-2 rounded-full text-amber-600 shrink-0">
+                             <Upload size={20} />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-bold text-slate-800 mb-1">Restore from Backup</h3>
+                            <p className="text-slate-600 text-sm mb-4">
+                                Import a previously saved JSON backup file. <br/>
+                                <strong className="text-rose-600">Warning: This will overwrite all current data.</strong>
+                            </p>
+                            <label className="inline-flex cursor-pointer bg-white border border-amber-200 text-amber-700 px-4 py-2 rounded-lg font-medium hover:bg-amber-100 transition-colors items-center gap-2">
+                                <Upload size={16} /> Select Backup File
+                                <input type="file" accept=".json" onChange={handleRestoreJSON} className="hidden" />
+                            </label>
+                        </div>
+                    </div>
+                </div>
             </div>
           </div>
         )}

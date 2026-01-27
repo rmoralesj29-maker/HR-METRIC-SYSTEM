@@ -1,28 +1,47 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# HR Metric System
 
-# Run and deploy your AI Studio app
+A local-first HR dashboard for managing employees, tracking tenure and VR rates, and monitoring company-wide sick days.
 
-This contains everything you need to run your app locally.
+## Features
 
-View your app in AI Studio: https://ai.studio/apps/drive/1T_KeBSnT9eABFWpZvjXlsgLsGfSfu4zO
+- **Employee Management**: Add, edit, and remove employees.
+- **Tenure Tracking**: Automatically calculates tenure based on start date.
+- **VR Rate**: Explicit VR level tracking (VR0-VR5).
+- **Global Sick Days**: Track monthly sick day totals for the company.
+- **Dashboard**: Visual analytics for demographics, tenure, and more.
+- **Local Persistence**: All data is saved to your browser's LocalStorage.
+- **Data Safety**: Export and Import your data to JSON.
 
-## Run Locally
+## Tech Stack
 
-**Prerequisites:**  Node.js
+- React 19
+- TypeScript
+- Vite
+- Tailwind CSS
+- Recharts
+- Lucide React
 
+## Getting Started
 
-1. Install dependencies:
-   `npm install`
-2. Configure environment variables in `.env.local`:
-   ```bash
-   GEMINI_API_KEY=your_gemini_key
-   VITE_SUPABASE_URL=your_supabase_project_url
-   VITE_SUPABASE_ANON_KEY=your_supabase_anon_or_publishable_key
-   ```
-3. Prepare Supabase (once per project):
-   - Create a table by running [`supabase/app_memory_test.sql`](supabase/app_memory_test.sql) in the SQL editor.
-   - Ensure Row Level Security policies allow anonymous read/write for testing (included in the SQL file).
-4. Run the app:
-   `npm run dev`
+1.  Clone the repository.
+2.  Install dependencies:
+    ```bash
+    npm install
+    ```
+3.  Start the development server:
+    ```bash
+    npm run dev
+    ```
+4.  Open your browser to the local URL (usually http://localhost:5173).
+
+## Data Storage
+
+This application uses **LocalStorage** to persist data. No external database or backend is required.
+- **Employees**: `hr_employees`
+- **Vacations**: `hr_vacations`
+- **Settings**: `hr_settings`
+
+## Development
+
+- **Build**: `npm run build`
+- **Preview**: `npm run preview`

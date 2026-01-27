@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Employee, SystemSettings, DEFAULT_SETTINGS } from '../types';
+import { Employee, SystemSettings } from '../types';
 import {
   BarChart,
   Bar,
@@ -17,11 +17,10 @@ import {
   LabelList,
 } from 'recharts';
 import { StatCard } from './ui/StatCard';
-import { Users, Clock, Thermometer } from 'lucide-react';
+import { Users, Clock, Thermometer, Calendar } from 'lucide-react';
 import { getDashboardStats } from '../utils/dashboardStats';
 import { useGlobalContext } from '../utils/GlobalContext';
 import { DrillDownModal } from './DrillDownModal';
-import { useVacationStore } from '../utils/vacationStore';
 
 interface DashboardProps {
   employees: Employee[];
@@ -37,10 +36,11 @@ const GENDER_COLORS: Record<string, string> = {
 const DEFAULT_GENDER_COLOR = '#94a3b8';
 
 export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings }) => {
-  const { asOfDate } = useGlobalContext();
-  const { vacations } = useVacationStore();
+  const { asOfDate, setAsOfDate } = useGlobalContext();
   const [drillDownConfig, setDrillDownConfig] = React.useState<{ title: string; employees: Employee[] } | null>(null);
-  const stats = useMemo(() => getDashboardStats(employees, settings), [employees, settings]);
+
+  // Pass asOfDate to get correct stats for the selected point in time
+  const stats = useMemo(() => getDashboardStats(employees, settings, asOfDate), [employees, settings, asOfDate]);
 
   const handleDrillDown = (type: string, data: any) => {
     if (!data) return;
@@ -105,27 +105,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings }
 
   const tenureDist = useMemo(
     () => [
-      { name: '<6m', value: employees.filter((e) => (e.totalExperienceMonths || 0) < 6).length },
-      {
-        name: '6m-1y',
-        value: employees.filter((e) => (e.totalExperienceMonths || 0) >= 6 && (e.totalExperienceMonths || 0) < 12).length,
-      },
-      {
-        name: '1y-2y',
-        value: employees.filter((e) => (e.totalExperienceMonths || 0) >= 12 && (e.totalExperienceMonths || 0) < 24).length,
-      },
-      {
-        name: '2y-3y',
-        value: employees.filter((e) => (e.totalExperienceMonths || 0) >= 24 && (e.totalExperienceMonths || 0) < 36).length,
-      },
-      { name: '3y+', value: employees.filter((e) => (e.totalExperienceMonths || 0) >= 36).length },
+      { name: '<6m', value: stats.tenureBuckets['<6m'] },
+      { name: '6m-1y', value: stats.tenureBuckets['6m-1y'] },
+      { name: '1y-2y', value: stats.tenureBuckets['1y-2y'] },
+      { name: '2y-3y', value: stats.tenureBuckets['2y-3y'] },
+      { name: '3y+', value: stats.tenureBuckets['3y+'] },
     ],
-    [employees]
+    [stats.tenureBuckets]
   );
 
   const genderData = useMemo(() => {
     const genderDist = employees.reduce((acc, emp) => {
-      const gender = emp.gender || 'Unknown';
+      const gender = emp.gender || 'Other';
       acc[gender] = (acc[gender] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
@@ -134,28 +125,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings }
 
   const currentYear = asOfDate.getFullYear();
 
-  // Dynamically calculate sick days from vacation store
+  // Get global sick days for the currently selected year
   const monthlySickDays = useMemo(() => {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const data = months.map(m => ({ month: m, value: 0 }));
-
-    vacations.forEach(v => {
-        if (v.type === 'Sick') {
-            // Check year
-            const vDate = v.startDate; // YYYY-MM-DD
-            if (vDate.startsWith(String(currentYear))) {
-                const monthIndex = parseInt(vDate.split('-')[1]) - 1;
-                if (monthIndex >= 0 && monthIndex < 12) {
-                    data[monthIndex].value += v.days;
-                }
-            }
-        }
-    });
-    return data;
-  }, [vacations, currentYear]);
+    return settings.sickDaysByYear?.[currentYear] || [];
+  }, [settings.sickDaysByYear, currentYear]);
 
   const totalSickDaysYTD = monthlySickDays.reduce((acc, curr) => acc + (Number(curr.value) || 0), 0);
-  const calculatedAvgSickDays = stats.totalEmployees > 0 ? (totalSickDaysYTD / stats.totalEmployees).toFixed(1) : 0;
   const averageTenureYears = (stats.averageTotalExperienceMonths / 12).toFixed(1);
 
   const languageData = useMemo(() => {
@@ -175,15 +150,39 @@ export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings }
       .sort((a, b) => b.value - a.value);
   }, [employees]);
 
+  const handleRefresh = () => {
+    // Force re-computation is automatic via React state, but we can simulate a "refresh" feedback if needed.
+    // In this architecture, updating asOfDate or employees triggers re-render.
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
+      {/* Global As Of Date Control */}
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+              <div className="bg-indigo-100 p-2 rounded-full text-indigo-600">
+                  <Calendar size={20} />
+              </div>
+              <div>
+                  <h2 className="text-sm font-bold text-slate-700">As of Date</h2>
+                  <p className="text-xs text-slate-500">All metrics calculated relative to this date</p>
+              </div>
+          </div>
+          <input
+              type="date"
+              value={asOfDate.toISOString().split('T')[0]}
+              onChange={(e) => setAsOfDate(new Date(e.target.value))}
+              className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none text-slate-700 font-medium"
+          />
+      </div>
+
       {/* Top Stat Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <StatCard icon={<Users className="text-white" size={24} />} title="Total Employees" value={stats.totalEmployees} color="bg-indigo-500" />
         <StatCard
           icon={<Thermometer className="text-white" size={24} />}
           title="Avg Sick Days"
-          value={calculatedAvgSickDays}
+          value={stats.averageSickDays}
           color="bg-rose-500"
         />
         <StatCard
@@ -223,7 +222,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings }
 
         {/* Sick Days Trend */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-          <h3 className="text-lg font-bold text-slate-800 mb-4">Sick Days Trend (YTD)</h3>
+          <div className="flex justify-between items-start mb-4">
+             <h3 className="text-lg font-bold text-slate-800">Company Sick Days ({currentYear})</h3>
+             <span className="text-xs font-medium px-2 py-1 bg-rose-100 text-rose-700 rounded-full">Total: {totalSickDaysYTD}</span>
+          </div>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={monthlySickDays}>
@@ -240,9 +242,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings }
                 <Area type="monotone" dataKey="value" stroke="#ef4444" strokeWidth={3} fillOpacity={1} fill="url(#colorSick)" />
               </AreaChart>
             </ResponsiveContainer>
-            {stats.totalEmployees === 0 && <p className="text-center text-slate-400 text-sm mt-2">No data yet</p>}
+            {monthlySickDays.length === 0 && <p className="text-center text-slate-400 text-sm mt-2">No sick day data for {currentYear}</p>}
           </div>
-          <p className="text-xs text-slate-500 mt-2">Total sick days recorded: {totalSickDaysYTD}</p>
         </div>
       </div>
 

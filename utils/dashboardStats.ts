@@ -7,11 +7,16 @@ export interface DashboardStats {
   averageSickDays: number;
   vrDistribution: Record<string, number>;
   ageBuckets: Record<string, number>;
+  tenureBuckets: Record<string, number>;
   performanceDistribution: Record<number, number>;
   languageDistribution: Record<string, number>;
 }
 
-export const getDashboardStats = (employees: Employee[], settings: SystemSettings): DashboardStats => {
+export const getDashboardStats = (
+  employees: Employee[],
+  settings: SystemSettings,
+  asOfDate: Date = new Date()
+): DashboardStats => {
   if (!employees.length) {
     return {
       totalEmployees: 0,
@@ -20,12 +25,13 @@ export const getDashboardStats = (employees: Employee[], settings: SystemSetting
       averageSickDays: 0,
       vrDistribution: { VR0: 0, VR1: 0, VR2: 0, VR3: 0, VR4: 0, VR5: 0 },
       ageBuckets: { '<22': 0, '22-29': 0, '30-39': 0, '40-49': 0, '50+': 0 },
+      tenureBuckets: { '<6m': 0, '6m-1y': 0, '1y-2y': 0, '2y-3y': 0, '3y+': 0 },
       performanceDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
       languageDistribution: {},
     };
   }
 
-  // Employees are assumed to be already enriched by App.tsx
+  // Employees are assumed to be already enriched (tenure calculated relative to asOfDate)
   const enriched = employees;
   const totalEmployees = enriched.length;
 
@@ -36,7 +42,7 @@ export const getDashboardStats = (employees: Employee[], settings: SystemSetting
   const averageTotalExperienceMonths = Number((sumExperience / totalEmployees).toFixed(1));
 
   // Calculate Average Sick Days (Global Total / Total Employees)
-  const currentYear = new Date().getFullYear();
+  const currentYear = asOfDate.getFullYear();
   const yearData = settings.sickDaysByYear?.[currentYear] || [];
   const totalSickDays = yearData.reduce((sum, m) => sum + m.value, 0);
   const averageSickDays = Number((totalSickDays / totalEmployees).toFixed(1));
@@ -60,6 +66,16 @@ export const getDashboardStats = (employees: Employee[], settings: SystemSetting
     { '<22': 0, '22-29': 0, '30-39': 0, '40-49': 0, '50+': 0 } as Record<string, number>
   );
 
+  const tenureBuckets = enriched.reduce((acc, emp) => {
+    const months = emp.totalExperienceMonths || 0;
+    if (months < 6) acc['<6m'] += 1;
+    else if (months < 12) acc['6m-1y'] += 1;
+    else if (months < 24) acc['1y-2y'] += 1;
+    else if (months < 36) acc['2y-3y'] += 1;
+    else acc['3y+'] += 1;
+    return acc;
+  }, { '<6m': 0, '6m-1y': 0, '1y-2y': 0, '2y-3y': 0, '3y+': 0 } as Record<string, number>);
+
   const performanceDistribution = enriched.reduce(
     (acc, emp) => {
       const rating = Math.min(5, Math.max(1, Math.round(emp.performanceRating || 0))) as 1 | 2 | 3 | 4 | 5;
@@ -68,8 +84,6 @@ export const getDashboardStats = (employees: Employee[], settings: SystemSetting
     },
     { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } as Record<number, number>
   );
-
-  // raiseDue removed
 
   const languageDistribution = enriched.reduce((acc, emp) => {
     if (emp.languages && Array.isArray(emp.languages)) {
@@ -90,6 +104,7 @@ export const getDashboardStats = (employees: Employee[], settings: SystemSetting
     averageSickDays,
     vrDistribution,
     ageBuckets,
+    tenureBuckets,
     performanceDistribution,
     languageDistribution,
   };
