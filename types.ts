@@ -53,6 +53,10 @@ export interface SystemSettings {
   showLanguageStats: boolean;
   // Global Sick Days Stats
   sickDaysByYear: Record<number, MonthlySickData[]>;
+  dropdownOptions: {
+    countries: string[];
+    languages: string[];
+  };
 }
 
 export interface Vacation {
@@ -85,6 +89,27 @@ export const DEFAULT_SETTINGS: SystemSettings = {
       { month: 'Nov', value: 0 },
       { month: 'Dec', value: 0 },
     ]
+  },
+  dropdownOptions: {
+    countries: [
+      'Canada',
+      'Costa Rica',
+      'Croatia',
+      'Czech Republic',
+      'France',
+      'Germany',
+      'Iceland',
+      'Ireland',
+      'Nigeria',
+      'Norway',
+      'Palestine',
+      'Spain',
+      'Swiss',
+      'United Kingdom',
+      'United States',
+      'Venezuela',
+    ],
+    languages: ['English', 'Spanish', 'French', 'German'],
   },
 };
 
