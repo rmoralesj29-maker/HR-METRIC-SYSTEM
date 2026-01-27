@@ -21,6 +21,7 @@ import { Users, Clock, Thermometer } from 'lucide-react';
 import { getDashboardStats } from '../utils/dashboardStats';
 import { useGlobalContext } from '../utils/GlobalContext';
 import { DrillDownModal } from './DrillDownModal';
+import { useVacationStore } from '../utils/vacationStore';
 
 interface DashboardProps {
   employees: Employee[];
@@ -37,6 +38,7 @@ const DEFAULT_GENDER_COLOR = '#94a3b8';
 
 export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings }) => {
   const { asOfDate } = useGlobalContext();
+  const { vacations } = useVacationStore();
   const [drillDownConfig, setDrillDownConfig] = React.useState<{ title: string; employees: Employee[] } | null>(null);
   const stats = useMemo(() => getDashboardStats(employees, settings), [employees, settings]);
 
@@ -131,9 +133,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings }
   }, [employees]);
 
   const currentYear = asOfDate.getFullYear();
-  // Fallback to 2025 or empty if year not found, but we want to show empty graph rather than crash
-  const monthlySickDays =
-    settings.sickDaysByYear[currentYear] || [];
+
+  // Dynamically calculate sick days from vacation store
+  const monthlySickDays = useMemo(() => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const data = months.map(m => ({ month: m, value: 0 }));
+
+    vacations.forEach(v => {
+        if (v.type === 'Sick') {
+            // Check year
+            const vDate = v.startDate; // YYYY-MM-DD
+            if (vDate.startsWith(String(currentYear))) {
+                const monthIndex = parseInt(vDate.split('-')[1]) - 1;
+                if (monthIndex >= 0 && monthIndex < 12) {
+                    data[monthIndex].value += v.days;
+                }
+            }
+        }
+    });
+    return data;
+  }, [vacations, currentYear]);
 
   const totalSickDaysYTD = monthlySickDays.reduce((acc, curr) => acc + (Number(curr.value) || 0), 0);
   const calculatedAvgSickDays = stats.totalEmployees > 0 ? (totalSickDaysYTD / stats.totalEmployees).toFixed(1) : 0;
