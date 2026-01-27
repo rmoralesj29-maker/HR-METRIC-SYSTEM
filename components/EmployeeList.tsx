@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Employee, ColumnDefinition } from '../types';
-import { Edit, AlertCircle, Plus, X, Save, Trash2, Search, Info, Calendar } from 'lucide-react';
+import { Edit, Plus, X, Save, Trash2, Search, Info, Calendar } from 'lucide-react';
 import { formatEmployeeName } from '../utils/experience';
 import { LanguageInput } from './LanguageInput';
 
@@ -53,8 +53,7 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({ employees, columns, 
     statusVR: 'VR0',
     dateOfBirth: '',
     startDate: new Date().toISOString().split('T')[0],
-    totalExperienceMonths: 0,
-    monthsToNextRaise: null,
+    // Derived fields like totalExperienceMonths are not needed for empty state, they will be calculated.
     performanceRating: 3,
     languages: [],
     customFields: {},
@@ -66,7 +65,7 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({ employees, columns, 
         <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4">
           <div>
             <h2 className="text-xl font-bold text-slate-800">Employee Directory</h2>
-            <p className="text-slate-500 text-sm">Track detailed stats, raise schedules, and personal info.</p>
+            <p className="text-slate-500 text-sm">Track detailed stats and personal info.</p>
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
             <div className="relative flex-1 sm:w-64">
@@ -154,14 +153,6 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({ employees, columns, 
                     <div className="flex flex-col gap-1 text-xs">
                       <span className="text-slate-600">
                         Total: <span className="font-bold text-slate-800">{employee.totalExperienceMonths} mo</span>
-                      </span>
-                      <span className="text-slate-400">
-                        Next Raise:{' '}
-                        {employee.inRaiseWindow ? (
-                          <span className="text-amber-600 font-bold">NOW</span>
-                        ) : (
-                          `${employee.monthsToNextRaise ?? 'Max'} mo`
-                        )}
                       </span>
                     </div>
                   </td>
@@ -308,8 +299,8 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ employee, columns
     const cleaned: Employee = {
       ...formData,
       performanceRating: Math.min(5, Math.max(1, Number(formData.performanceRating) || 1)),
-      monthsToNextRaise: formData.monthsToNextRaise ?? null,
-      totalExperienceMonths: formData.totalExperienceMonths || 0,
+      // Remove derived fields from stored data if possible, but keeping them here is fine as they are just overwritten on load.
+      // But we should clean up nulls.
     };
 
     onSave(cleaned);

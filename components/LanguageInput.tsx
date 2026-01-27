@@ -6,22 +6,26 @@ interface LanguageInputProps {
   onChange: (languages: string[]) => void;
 }
 
-export const LanguageInput: React.FC<LanguageInputProps> = ({ value, onChange }) => {
+export const LanguageInput: React.FC<LanguageInputProps> = ({ value = [], onChange }) => {
   const [inputValue, setInputValue] = useState('');
 
+  const normalizeTag = (tag: string) => {
+    const trimmed = tag.trim();
+    if (!trimmed) return '';
+    return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+  };
+
   const addTags = (input: string) => {
+    const existingLower = new Set(value.map(v => v.toLowerCase()));
+
     const newTags = input
       .split(/[,]+/) // Split by comma
-      .map((tag) => {
-          const trimmed = tag.trim();
-          // Normalize to Title Case
-          return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
-      })
-      .filter((tag) => tag.length > 0);
+      .map(normalizeTag)
+      .filter((tag) => tag.length > 0 && !existingLower.has(tag.toLowerCase()));
 
-    // Deduplicate and merge
-    const uniqueTags = new Set([...value, ...newTags]);
-    onChange(Array.from(uniqueTags));
+    if (newTags.length > 0) {
+      onChange([...value, ...newTags]);
+    }
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -31,6 +35,7 @@ export const LanguageInput: React.FC<LanguageInputProps> = ({ value, onChange })
       setInputValue('');
     } else if (e.key === 'Backspace' && inputValue === '' && value.length > 0) {
       // Remove last tag
+      e.preventDefault();
       onChange(value.slice(0, -1));
     }
   };
@@ -43,6 +48,7 @@ export const LanguageInput: React.FC<LanguageInputProps> = ({ value, onChange })
     e.preventDefault();
     const pastedData = e.clipboardData.getData('text');
     addTags(pastedData);
+    setInputValue('');
   };
 
   const removeTag = (tagToRemove: string) => {
@@ -58,6 +64,7 @@ export const LanguageInput: React.FC<LanguageInputProps> = ({ value, onChange })
         >
           {tag}
           <button
+            type="button"
             onClick={() => removeTag(tag)}
             className="hover:text-indigo-900 rounded-full focus:outline-none"
           >

@@ -1,19 +1,8 @@
 export type Gender = 'Male' | 'Female' | 'Other' | string;
 export type StatusVR = 'VR0' | 'VR1' | 'VR2' | 'VR3' | 'VR4' | 'VR5' | string;
 
-// Enum for backward compatibility if needed, though HEAD uses string
-export enum VRRate {
-  VR0 = 'VR0',
-  VR1 = 'VR1',
-  VR2 = 'VR2',
-  VR3 = 'VR3',
-  VR4 = 'VR4',
-  VR5 = 'VR5',
-}
-
 export interface Employee {
   id: string;
-  // HEAD fields
   firstName: string;
   lastName: string;
   gender: Gender;
@@ -22,28 +11,19 @@ export interface Employee {
   statusVR: StatusVR;
   dateOfBirth: string; // ISO date string YYYY-MM-DD
   startDate: string; // ISO date string YYYY-MM-DD
-  // previousExperienceMonths removed
-  totalExperienceMonths: number;
-  monthsToNextRaise: number | null;
-  // sickDaysYTD removed
   performanceRating: number; // 1-5
   languages: string[];
   customFields?: Record<string, string | number | null>;
-  inRaiseWindow?: boolean;
-  age?: number;
 
-  // Fields from other branch for compatibility
-  // name: string; // Use firstName + lastName
-  // dob: string; // Use dateOfBirth
-  // vrRate: VRRate; // Use statusVR
-  // customData: any; // Use customFields
+  // Derived / Runtime fields (not necessarily stored)
+  age?: number;
+  totalExperienceMonths?: number;
 }
 
-// Keeping this type alias for compatibility with other branch's components if they use it explicitly
+// Keeping this type alias for compatibility if needed
 export interface CalculatedEmployeeStats extends Employee {
   totalDaysWorked: number;
   currentMonthsWorked: number;
-  nextMilestone: number | null;
 }
 
 export interface ChartData {
@@ -69,20 +49,9 @@ export interface MonthlySickData {
 
 export interface SystemSettings {
   adultAgeThreshold: number; // Default 22
-  raiseMilestones: number[]; // Default [6, 12, 36, 60]
-  vrThresholds: {
-    vr0: number; // 0
-    vr1: number; // 7
-    vr2: number; // 13
-    vr3: number; // 37
-    vr4: number; // 61
-  };
-  raiseWindowDays: number; // Default 15 (approx 0.5 months)
   showCountryStats: boolean;
   showLanguageStats: boolean;
-  // New Global Stats
-  /** @deprecated use sickDaysByYear instead */
-  monthlySickDays: MonthlySickData[];
+  // Global Sick Days Stats
   sickDaysByYear: Record<number, MonthlySickData[]>;
 }
 
@@ -99,18 +68,8 @@ export interface Vacation {
 
 export const DEFAULT_SETTINGS: SystemSettings = {
   adultAgeThreshold: 22,
-  raiseMilestones: [6, 12, 36, 60],
-  vrThresholds: {
-    vr0: 0,
-    vr1: 7,
-    vr2: 13,
-    vr3: 37,
-    vr4: 61,
-  },
-  raiseWindowDays: 15,
   showCountryStats: true,
   showLanguageStats: true,
-  monthlySickDays: [],
   sickDaysByYear: {
     2025: [
       { month: 'Jan', value: 0 },
