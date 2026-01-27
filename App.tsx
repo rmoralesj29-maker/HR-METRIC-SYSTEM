@@ -234,6 +234,7 @@ const App: React.FC = () => {
             <EmployeeList
               employees={calculatedEmployees}
               columns={customColumns}
+              settings={systemSettings}
               onUpdate={updateEmployee}
               onAdd={addEmployee}
               onRemove={deleteEmployee}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { SystemSettings, ColumnDefinition, Employee } from '../types';
-import { Plus, Trash2, Download, Upload, Table, Settings as SettingsIcon, Layout, Database } from 'lucide-react';
+import { Plus, Trash2, Download, Upload, Table, Settings as SettingsIcon, Layout, Database, List, X } from 'lucide-react';
 import { storage } from '../utils/storage';
 import { useToast } from '../utils/ToastContext';
 
@@ -12,6 +12,68 @@ interface SettingsProps {
   employees: Employee[];
 }
 
+interface ListEditorProps {
+  title: string;
+  items: string[];
+  onUpdate: (items: string[]) => void;
+  placeholder?: string;
+}
+
+const ListEditor: React.FC<ListEditorProps> = ({ title, items, onUpdate, placeholder }) => {
+  const [newItem, setNewItem] = useState('');
+  const { showToast } = useToast();
+
+  const handleAdd = () => {
+    if (!newItem.trim()) return;
+    const normalized = newItem.trim();
+    // Check duplicates (case insensitive)
+    if (items.some(i => i.toLowerCase() === normalized.toLowerCase())) {
+        showToast('Item already exists', 'error');
+        return;
+    }
+    onUpdate([...items, normalized].sort());
+    setNewItem('');
+  };
+
+  const handleRemove = (itemToRemove: string) => {
+    onUpdate(items.filter(i => i !== itemToRemove));
+  };
+
+  return (
+    <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
+      <h3 className="text-sm font-bold text-slate-800 mb-3">{title}</h3>
+      <div className="flex gap-2 mb-4">
+        <input
+          type="text"
+          value={newItem}
+          onChange={(e) => setNewItem(e.target.value)}
+          placeholder={placeholder}
+          className="flex-1 bg-white text-slate-900 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+          onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+        />
+        <button
+          onClick={handleAdd}
+          disabled={!newItem.trim()}
+          className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center justify-center w-10"
+        >
+          <Plus size={16} />
+        </button>
+      </div>
+      <div className="flex flex-wrap gap-2 max-h-60 overflow-y-auto">
+        {items.map((item) => (
+          <span key={item} className="inline-flex items-center gap-1 px-3 py-1 bg-white border border-slate-200 rounded-full text-sm text-slate-700 shadow-sm">
+            {item}
+            <button onClick={() => handleRemove(item)} className="text-slate-400 hover:text-rose-500 ml-1">
+              <X size={14} />
+            </button>
+          </span>
+        ))}
+        {items.length === 0 && <span className="text-sm text-slate-400 italic">No items defined.</span>}
+      </div>
+    </div>
+  );
+};
+
 export const Settings: React.FC<SettingsProps> = ({
   settings,
   onUpdateSettings,
@@ -19,13 +81,23 @@ export const Settings: React.FC<SettingsProps> = ({
   onUpdateColumns,
   employees,
 }) => {
-  const [activeTab, setActiveTab] = useState<'rules' | 'columns' | 'data'>('rules');
+  const [activeTab, setActiveTab] = useState<'rules' | 'columns' | 'data' | 'dropdowns'>('rules');
   const [newColLabel, setNewColLabel] = useState('');
   const [newColType, setNewColType] = useState<'text' | 'number' | 'date'>('text');
   const { showToast } = useToast();
 
   const handleRuleChange = (key: keyof SystemSettings, value: any) => {
     onUpdateSettings({ ...settings, [key]: value });
+  };
+
+  const handleDropdownChange = (key: 'countries' | 'languages', newItems: string[]) => {
+      onUpdateSettings({
+          ...settings,
+          dropdownOptions: {
+              ...settings.dropdownOptions,
+              [key]: newItems
+          }
+      });
   };
 
   const handleAddColumn = () => {
@@ -137,6 +209,12 @@ export const Settings: React.FC<SettingsProps> = ({
             <SettingsIcon size={18} /> Rules & Config
           </button>
           <button
+            onClick={() => setActiveTab('dropdowns')}
+            className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${activeTab === 'dropdowns' ? 'bg-indigo-100 text-indigo-700' : 'text-slate-600 hover:bg-slate-100'}`}
+          >
+            <List size={18} /> Dropdown Options
+          </button>
+          <button
             onClick={() => setActiveTab('columns')}
             className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${activeTab === 'columns' ? 'bg-indigo-100 text-indigo-700' : 'text-slate-600 hover:bg-slate-100'}`}
           >
@@ -197,6 +275,29 @@ export const Settings: React.FC<SettingsProps> = ({
                   <p className="text-xs text-slate-400 mt-1">Age where "Adult" logic applies.</p>
               </div>
             </div>
+          </div>
+        )}
+
+        {activeTab === 'dropdowns' && (
+          <div className="max-w-3xl space-y-8">
+             <div>
+                <h2 className="text-2xl font-bold text-slate-800 mb-2">Dropdown Options</h2>
+                <p className="text-slate-500">Manage the list options available in forms (Countries, Languages).</p>
+             </div>
+
+             <ListEditor
+                title="Countries List"
+                items={settings.dropdownOptions?.countries || []}
+                onUpdate={(items) => handleDropdownChange('countries', items)}
+                placeholder="Add new country..."
+             />
+
+             <ListEditor
+                title="Languages List"
+                items={settings.dropdownOptions?.languages || []}
+                onUpdate={(items) => handleDropdownChange('languages', items)}
+                placeholder="Add new language..."
+             />
           </div>
         )}
 

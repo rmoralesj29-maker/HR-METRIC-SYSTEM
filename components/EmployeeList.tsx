@@ -1,18 +1,20 @@
 import React, { useState } from 'react';
-import { Employee, ColumnDefinition } from '../types';
+import { Employee, ColumnDefinition, SystemSettings } from '../types';
 import { Edit, Plus, X, Save, Trash2, Search, Info, Calendar } from 'lucide-react';
 import { formatEmployeeName } from '../utils/experience';
 import { LanguageInput } from './LanguageInput';
+import { SearchableSelect } from './ui/SearchableSelect';
 
 interface EmployeeListProps {
   employees: Employee[];
   columns: ColumnDefinition[];
-  onUpdate: (employee: Employee) => void;
-  onAdd: (employee: Employee) => void;
+  settings: SystemSettings;
+  onUpdate: (employee: Employee) => Promise<void> | void;
+  onAdd: (employee: Employee) => Promise<void> | void;
   onRemove: (id: string) => Promise<void> | void;
 }
 
-export const EmployeeList: React.FC<EmployeeListProps> = ({ employees, columns, onUpdate, onAdd, onRemove }) => {
+export const EmployeeList: React.FC<EmployeeListProps> = ({ employees, columns, settings, onUpdate, onAdd, onRemove }) => {
   const [filter, setFilter] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
@@ -197,9 +199,10 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({ employees, columns, 
         <EditEmployeeModal
           employee={employees.find((e) => e.id === editingId)!}
           columns={columns}
+          settings={settings}
           onClose={handleCloseEdit}
-          onSave={(updated) => {
-            onUpdate(updated);
+          onSave={async (updated) => {
+            await onUpdate(updated);
             handleCloseEdit();
           }}
           title="Edit Employee Details"
@@ -210,10 +213,11 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({ employees, columns, 
         <EditEmployeeModal
           employee={EMPTY_EMPLOYEE}
           columns={columns}
+          settings={settings}
           onClose={handleCloseEdit}
-          onSave={(newEmp) => {
+          onSave={async (newEmp) => {
             const empWithId = { ...newEmp, id: crypto.randomUUID() };
-            onAdd(empWithId);
+            await onAdd(empWithId);
             handleCloseEdit();
           }}
           title="Add New Employee"
@@ -263,14 +267,19 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({ employees, columns, 
 interface EditEmployeeModalProps {
   employee: Employee;
   columns: ColumnDefinition[];
+  settings: SystemSettings;
   onClose: () => void;
-  onSave: (emp: Employee) => void;
+  onSave: (emp: Employee) => Promise<void> | void;
   title?: string;
 }
 
-const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ employee, columns, onClose, onSave, title }) => {
-  const [formData, setFormData] = useState<Employee>({ ...employee });
+const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ employee, columns, settings, onClose, onSave, title }) => {
+  const [formData, setFormData] = useState<Employee>({
+      ...employee,
+      languages: employee.languages || [], // Ensure languages is always an array
+  });
   const [error, setError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -290,20 +299,30 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ employee, columns
     }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.firstName || !formData.lastName || !formData.dateOfBirth || !formData.startDate || !formData.role) {
       setError('Please fill in first name, last name, dates, and role.');
       return;
     }
 
+    setIsSaving(true);
+    setError(null);
+
     const cleaned: Employee = {
       ...formData,
       performanceRating: Math.min(5, Math.max(1, Number(formData.performanceRating) || 1)),
-      // Remove derived fields from stored data if possible, but keeping them here is fine as they are just overwritten on load.
-      // But we should clean up nulls.
+      languages: formData.languages || [], // Verification: ensure no undefined leaks
     };
 
-    onSave(cleaned);
+    try {
+        await onSave(cleaned);
+        // Note: Closing is handled by parent on success.
+    } catch (e) {
+        console.error(e);
+        setError('Failed to save employee. Please try again.');
+    } finally {
+        setIsSaving(false);
+    }
   };
 
   return (
@@ -368,12 +387,13 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ employee, columns
               </div>
               <div>
                 <label htmlFor="country" className="block text-xs font-medium text-slate-500 mb-1">Country</label>
-                <input
-                  id="country"
-                  name="country"
-                  value={formData.country}
-                  onChange={handleChange}
-                  className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-400"
+                <SearchableSelect
+                    id="country"
+                    name="country"
+                    value={formData.country}
+                    onChange={(val) => setFormData(prev => ({ ...prev, country: val }))}
+                    options={settings.dropdownOptions?.countries || []}
+                    placeholder="Select or type country..."
                 />
               </div>
             </div>
@@ -445,6 +465,7 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ employee, columns
                 <LanguageInput
                   value={formData.languages}
                   onChange={(langs) => setFormData((prev) => ({ ...prev, languages: langs }))}
+                  quickAddOptions={settings.dropdownOptions?.languages || []}
                 />
               </div>
             </div>
@@ -481,9 +502,10 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ employee, columns
           </button>
           <button
             onClick={handleSave}
-            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg flex items-center gap-2 transition-colors shadow-sm"
+            disabled={isSaving}
+            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg flex items-center gap-2 transition-colors shadow-sm disabled:opacity-50"
           >
-            <Save size={16} /> Save Changes
+            {isSaving ? 'Saving...' : <><Save size={16} /> Save Changes</>}
           </button>
         </div>
       </div>
