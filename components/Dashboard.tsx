@@ -15,9 +15,11 @@ import {
   AreaChart,
   Area,
   LabelList,
+  LineChart,
+  Line,
 } from 'recharts';
 import { StatCard } from './ui/StatCard';
-import { Users, Clock, Thermometer, Calendar } from 'lucide-react';
+import { Users, Clock, Thermometer, Calendar, UserCheck, Activity, UserMinus } from 'lucide-react';
 import { getDashboardStats } from '../utils/dashboardStats';
 import { useGlobalContext } from '../utils/GlobalContext';
 import { DrillDownModal } from './DrillDownModal';
@@ -150,11 +152,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings }
       .sort((a, b) => b.value - a.value);
   }, [employees]);
 
-  const handleRefresh = () => {
-    // Force re-computation is automatic via React state, but we can simulate a "refresh" feedback if needed.
-    // In this architecture, updating asOfDate or employees triggers re-render.
-  };
-
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Global As Of Date Control */}
@@ -176,7 +173,29 @@ export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings }
           />
       </div>
 
-      {/* Top Stat Cards */}
+      {/* Workforce Status Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <StatCard
+            icon={<UserCheck className="text-white" size={24} />}
+            title="Active"
+            value={stats.workforceStatus.active}
+            color="bg-emerald-500"
+        />
+        <StatCard
+            icon={<Activity className="text-white" size={24} />}
+            title="Leaving"
+            value={stats.workforceStatus.leaving}
+            color="bg-amber-500"
+        />
+        <StatCard
+            icon={<UserMinus className="text-white" size={24} />}
+            title="Left"
+            value={stats.workforceStatus.left}
+            color="bg-slate-500"
+        />
+      </div>
+
+      {/* Main Stat Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <StatCard icon={<Users className="text-white" size={24} />} title="Total Employees" value={stats.totalEmployees} color="bg-indigo-500" />
         <StatCard
@@ -193,30 +212,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings }
         />
       </div>
 
-      {/* Main Charts Row 1 */}
+      {/* Workforce Movement Chart & Sick Days */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* VR Rate Distribution */}
+        {/* Workforce Movement */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-          <h3 className="text-lg font-bold text-slate-800 mb-4">VR Rate Distribution</h3>
+          <h3 className="text-lg font-bold text-slate-800 mb-4">Workforce Movement (Monthly)</h3>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={vrData} layout="vertical" margin={{ left: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} />
-                <XAxis type="number" hide />
-                <YAxis dataKey="name" type="category" width={40} tick={{ fill: '#64748b' }} />
-                <Tooltip
-                  cursor={{ fill: '#f1f5f9' }}
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                />
-                <Bar dataKey="value" radius={[0, 4, 4, 0]} onClick={(data) => handleDrillDown('VR Rate', data)} style={{ cursor: 'pointer' }}>
-                  {vrData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                  <LabelList dataKey="value" position="right" fill="#64748b" />
-                </Bar>
-              </BarChart>
+              <LineChart data={stats.monthlyMovement}>
+                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                 <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                 <YAxis allowDecimals={false} />
+                 <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                 <Legend />
+                 <Line type="monotone" dataKey="hires" name="Hires" stroke="#10b981" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                 <Line type="monotone" dataKey="leavers" name="Leavers" stroke="#ef4444" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+              </LineChart>
             </ResponsiveContainer>
-            {stats.totalEmployees === 0 && <p className="text-center text-slate-400 text-sm mt-2">No data yet</p>}
           </div>
         </div>
 
@@ -247,8 +259,55 @@ export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings }
         </div>
       </div>
 
-      {/* Main Charts Row 2 */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* VR Rate Distribution (Now Full Width if needed, or grouped with something else? Let's leave it as part of grid but alone? Or group with Tenure?) */}
+      {/* Since I replaced the Row 1, I need to put the rest back. */}
+      {/* I'll put VR Rate and Tenure in a row. */}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* VR Rate Distribution */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+          <h3 className="text-lg font-bold text-slate-800 mb-4">VR Rate Distribution</h3>
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={vrData} layout="vertical" margin={{ left: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} />
+                <XAxis type="number" hide />
+                <YAxis dataKey="name" type="category" width={40} tick={{ fill: '#64748b' }} />
+                <Tooltip
+                  cursor={{ fill: '#f1f5f9' }}
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                />
+                <Bar dataKey="value" radius={[0, 4, 4, 0]} onClick={(data) => handleDrillDown('VR Rate', data)} style={{ cursor: 'pointer' }}>
+                  {vrData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                  <LabelList dataKey="value" position="right" fill="#64748b" />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+            {stats.totalEmployees === 0 && <p className="text-center text-slate-400 text-sm mt-2">No data yet</p>}
+          </div>
+        </div>
+
+        {/* Tenure - moved here */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+          <h3 className="text-lg font-bold text-slate-800 mb-4">Experience / Tenure</h3>
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={tenureDist}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                <Tooltip />
+                <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} onClick={(data) => handleDrillDown('Tenure', data)} style={{ cursor: 'pointer' }} />
+              </BarChart>
+            </ResponsiveContainer>
+            {stats.totalEmployees === 0 && <p className="text-center text-slate-400 text-sm mt-2">No data yet</p>}
+          </div>
+        </div>
+      </div>
+
+      {/* Main Charts Row 3 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Age Demographics */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
           <h3 className="text-lg font-bold text-slate-800 mb-4">Age Demographics</h3>
@@ -263,22 +322,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ employees = [], settings }
                 <Tooltip />
                 <Legend />
               </PieChart>
-            </ResponsiveContainer>
-            {stats.totalEmployees === 0 && <p className="text-center text-slate-400 text-sm mt-2">No data yet</p>}
-          </div>
-        </div>
-
-        {/* Tenure */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-          <h3 className="text-lg font-bold text-slate-800 mb-4">Experience / Tenure</h3>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={tenureDist}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                <Tooltip />
-                <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} onClick={(data) => handleDrillDown('Tenure', data)} style={{ cursor: 'pointer' }} />
-              </BarChart>
             </ResponsiveContainer>
             {stats.totalEmployees === 0 && <p className="text-center text-slate-400 text-sm mt-2">No data yet</p>}
           </div>

@@ -1,5 +1,6 @@
 export type Gender = 'Male' | 'Female' | 'Other' | string;
 export type StatusVR = 'VR0' | 'VR1' | 'VR2' | 'VR3' | 'VR4' | 'VR5' | string;
+export type EmploymentStatus = 'active' | 'leaving' | 'left';
 
 export interface Employee {
   id: string;
@@ -13,6 +14,11 @@ export interface Employee {
   startDate: string; // ISO date string YYYY-MM-DD
   performanceRating: number; // 1-5
   languages: string[];
+  employmentStatus?: EmploymentStatus;
+  leaveDate?: string | null; // ISO date string YYYY-MM-DD
+  leaveReason?: string | null;
+  leaveNotes?: string | null;
+  statusChangedAt?: string | null; // ISO date string
   customFields?: Record<string, string | number | null>;
 
   // Derived / Runtime fields (not necessarily stored)

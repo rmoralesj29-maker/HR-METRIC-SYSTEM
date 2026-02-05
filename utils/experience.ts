@@ -34,11 +34,13 @@ export const enrichEmployee = (
 
   // Ensure VR Status is present (defaulting if needed)
   const statusVR = employee.statusVR || 'VR0';
+  const employmentStatus = employee.employmentStatus || 'active';
 
   return {
     ...employee,
     age: calculateAge(employee.dateOfBirth, today),
     totalExperienceMonths,
     statusVR,
+    employmentStatus,
   };
 };
