@@ -70,6 +70,11 @@ export const EmployeeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       monthsToNextRaise: null,
       performanceRating: input.performanceRating ?? 3,
       languages: input.languages ?? [],
+      employmentStatus: input.employmentStatus ?? 'active',
+      leaveDate: input.leaveDate ?? null,
+      leaveReason: input.leaveReason ?? null,
+      leaveNotes: input.leaveNotes ?? null,
+      statusChangedAt: input.statusChangedAt ?? null,
       customFields: input.customFields ?? {},
     };
 

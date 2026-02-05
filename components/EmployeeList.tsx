@@ -16,6 +16,7 @@ interface EmployeeListProps {
 
 export const EmployeeList: React.FC<EmployeeListProps> = ({ employees, columns, settings, onUpdate, onAdd, onRemove }) => {
   const [filter, setFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'default' | 'active' | 'leaving' | 'left' | 'all'>('default');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -24,7 +25,15 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({ employees, columns, 
   const filteredEmployees = employees
     .filter((e) => {
       const fullName = formatEmployeeName(e).toLowerCase();
-      return fullName.includes(filter.toLowerCase()) || e.role.toLowerCase().includes(filter.toLowerCase());
+      const matchesSearch = fullName.includes(filter.toLowerCase()) || e.role.toLowerCase().includes(filter.toLowerCase());
+
+      const status = e.employmentStatus || 'active';
+      let matchesStatus = false;
+      if (statusFilter === 'all') matchesStatus = true;
+      else if (statusFilter === 'default') matchesStatus = (status === 'active' || status === 'leaving');
+      else matchesStatus = status === statusFilter;
+
+      return matchesSearch && matchesStatus;
     })
     .sort((a, b) => formatEmployeeName(a).localeCompare(formatEmployeeName(b)));
 
@@ -69,23 +78,57 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({ employees, columns, 
             <h2 className="text-xl font-bold text-slate-800">Employee Directory</h2>
             <p className="text-slate-500 text-sm">Track detailed stats and personal info.</p>
           </div>
-          <div className="flex gap-2 w-full sm:w-auto">
-            <div className="relative flex-1 sm:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-              <input
-                type="text"
-                placeholder="Search by name or role..."
-                className="w-full pl-10 pr-4 py-2 bg-white text-slate-900 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm transition-all placeholder-slate-400"
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-              />
+          <div className="flex flex-col gap-3 w-full sm:w-auto items-end">
+            <div className="flex bg-slate-100 p-1 rounded-lg">
+                <button
+                    onClick={() => setStatusFilter('default')}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${statusFilter === 'default' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                    Active & Leaving
+                </button>
+                <button
+                    onClick={() => setStatusFilter('active')}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${statusFilter === 'active' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                    Active
+                </button>
+                <button
+                    onClick={() => setStatusFilter('leaving')}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${statusFilter === 'leaving' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                    Leaving
+                </button>
+                <button
+                    onClick={() => setStatusFilter('left')}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${statusFilter === 'left' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                    Left
+                </button>
+                 <button
+                    onClick={() => setStatusFilter('all')}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${statusFilter === 'all' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                    All
+                </button>
             </div>
-            <button
-              onClick={handleAddNewClick}
-              className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-200"
-            >
-              <Plus size={16} /> Add New
-            </button>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <div className="relative flex-1 sm:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                <input
+                  type="text"
+                  placeholder="Search by name or role..."
+                  className="w-full pl-10 pr-4 py-2 bg-white text-slate-900 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm transition-all placeholder-slate-400"
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value)}
+                />
+              </div>
+              <button
+                onClick={handleAddNewClick}
+                className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-200"
+              >
+                <Plus size={16} /> Add New
+              </button>
+            </div>
           </div>
         </div>
 
@@ -128,6 +171,14 @@ export const EmployeeList: React.FC<EmployeeListProps> = ({ employees, columns, 
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex flex-col gap-1">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium border w-fit ${
+                          (employee.employmentStatus === 'leaving') ? 'bg-amber-50 text-amber-700 border-amber-100' :
+                          (employee.employmentStatus === 'left') ? 'bg-slate-100 text-slate-500 border-slate-200' :
+                          'bg-emerald-50 text-emerald-700 border-emerald-100'
+                      }`}>
+                          {employee.employmentStatus === 'leaving' ? 'Leaving' :
+                           employee.employmentStatus === 'left' ? 'Left' : 'Active'}
+                      </span>
                       <span
                         className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium border w-fit ${
                           employee.gender === 'Male'
@@ -305,6 +356,11 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ employee, columns
       return;
     }
 
+    if ((formData.employmentStatus === 'leaving' || formData.employmentStatus === 'left') && !formData.leaveDate) {
+      setError('Leave Date is required when status is Leaving or Left.');
+      return;
+    }
+
     setIsSaving(true);
     setError(null);
 
@@ -312,6 +368,9 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ employee, columns
       ...formData,
       performanceRating: Math.min(5, Math.max(1, Number(formData.performanceRating) || 1)),
       languages: formData.languages || [], // Verification: ensure no undefined leaks
+      leaveDate: formData.employmentStatus === 'active' ? null : formData.leaveDate,
+      leaveReason: formData.employmentStatus === 'active' ? null : formData.leaveReason,
+      leaveNotes: formData.employmentStatus === 'active' ? null : formData.leaveNotes,
     };
 
     try {
@@ -349,6 +408,68 @@ const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ employee, columns
                   className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-400"
                 />
               </div>
+              <div>
+                <label htmlFor="employmentStatus" className="block text-xs font-medium text-slate-500 mb-1">Employment Status</label>
+                <select
+                  id="employmentStatus"
+                  name="employmentStatus"
+                  value={formData.employmentStatus || 'active'}
+                  onChange={handleChange}
+                  className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none appearance-none"
+                >
+                  <option value="active">Active</option>
+                  <option value="leaving">Leaving</option>
+                  <option value="left">Left</option>
+                </select>
+              </div>
+
+              {(formData.employmentStatus === 'leaving' || formData.employmentStatus === 'left') && (
+                <>
+                  <div>
+                    <label htmlFor="leaveDate" className="block text-xs font-medium text-slate-500 mb-1 flex items-center gap-1">
+                      <Calendar size={10} /> {formData.employmentStatus === 'leaving' ? 'Planned Leave Date' : 'Leave Date'}
+                    </label>
+                    <input
+                      id="leaveDate"
+                      type="date"
+                      name="leaveDate"
+                      value={formData.leaveDate || ''}
+                      onChange={handleChange}
+                      className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-400"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="leaveReason" className="block text-xs font-medium text-slate-500 mb-1">Leave Reason</label>
+                    <select
+                      id="leaveReason"
+                      name="leaveReason"
+                      value={formData.leaveReason || ''}
+                      onChange={handleChange}
+                      className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none appearance-none"
+                    >
+                      <option value="">Select Reason</option>
+                      <option value="Resigned">Resigned</option>
+                      <option value="Contract ended">Contract ended</option>
+                      <option value="Terminated">Terminated</option>
+                      <option value="Personal">Personal</option>
+                      <option value="School/Studies">School/Studies</option>
+                      <option value="Seasonal">Seasonal</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  <div className="col-span-1 md:col-span-2">
+                    <label htmlFor="leaveNotes" className="block text-xs font-medium text-slate-500 mb-1">Leave Notes</label>
+                    <textarea
+                      id="leaveNotes"
+                      name="leaveNotes"
+                      value={formData.leaveNotes || ''}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, leaveNotes: e.target.value }))}
+                      className="w-full bg-white text-slate-900 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none placeholder-slate-400"
+                      rows={2}
+                    />
+                  </div>
+                </>
+              )}
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-1">Last Name</label>
                 <input

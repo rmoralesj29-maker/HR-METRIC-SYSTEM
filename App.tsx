@@ -6,6 +6,7 @@ import { EmployeeList } from './components/EmployeeList';
 import { Settings } from './components/Settings';
 import { Vacations } from './components/Vacations';
 import { SickTracker } from './components/SickTracker';
+import { Offboarding } from './components/Offboarding';
 import { BirkirBot } from './components/BirkirBot';
 import { useEmployeeStore } from './utils/employeeStore';
 import { useSettingsStore } from './utils/settingsStore';
@@ -20,7 +21,7 @@ const App: React.FC = () => {
   const { settings: systemSettings, updateSettings: setSystemSettings } = useSettingsStore();
   const { asOfDate, setAsOfDate } = useGlobalContext();
   const { showToast } = useToast();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'employees' | 'vacations' | 'sickTracker' | 'settings'>('employees');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'employees' | 'vacations' | 'sickTracker' | 'offboarding' | 'settings'>('employees');
 
   const [customColumns, setCustomColumns] = useState<ColumnDefinition[]>(() => {
     try {
@@ -41,7 +42,7 @@ const App: React.FC = () => {
     [employees, systemSettings, asOfDate]
   );
 
-  const handleTabChange = (tab: 'dashboard' | 'employees' | 'vacations' | 'sickTracker' | 'settings') => {
+  const handleTabChange = (tab: 'dashboard' | 'employees' | 'vacations' | 'sickTracker' | 'offboarding' | 'settings') => {
     setActiveTab(tab);
   };
 
@@ -146,6 +147,18 @@ const App: React.FC = () => {
           </button>
 
           <button
+            onClick={() => handleTabChange('offboarding')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+              activeTab === 'offboarding'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                : 'hover:bg-slate-50 text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <LogOut size={20} className={activeTab === 'offboarding' ? '' : 'rotate-180'} />
+            <span className="font-medium">Offboarding</span>
+          </button>
+
+          <button
             onClick={() => handleTabChange('settings')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
               activeTab === 'settings'
@@ -200,6 +213,8 @@ const App: React.FC = () => {
                   ? 'Manage workforce details and records.'
                   : activeTab === 'sickTracker'
                   ? 'Monitor and record employee sick leave.'
+                  : activeTab === 'offboarding'
+                  ? 'Manage departures and exit analytics.'
                   : 'Configure system rules, fields, and export data.'}
               </p>
             </div>
@@ -247,6 +262,10 @@ const App: React.FC = () => {
 
           {activeTab === 'sickTracker' && (
             <SickTracker />
+          )}
+
+          {activeTab === 'offboarding' && (
+            <Offboarding employees={calculatedEmployees} settings={systemSettings} />
           )}
 
           {activeTab === 'settings' && (
