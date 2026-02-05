@@ -1,8 +1,26 @@
-import React, { useState } from 'react';
-import { SystemSettings, ColumnDefinition, Employee } from '../types';
-import { Plus, Trash2, Download, Upload, Table, Settings as SettingsIcon, Layout, Database, List, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { SystemSettings, ColumnDefinition, Employee, DEFAULT_SETTINGS } from '../types';
+import { Plus, Trash2, Download, Upload, Table, Settings as SettingsIcon, Layout, Database, List, X, GripVertical, Save } from 'lucide-react';
 import { storage } from '../utils/storage';
 import { useToast } from '../utils/ToastContext';
+import { WIDGET_TITLES } from './Dashboard';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface SettingsProps {
   settings: SystemSettings;
@@ -74,6 +92,39 @@ const ListEditor: React.FC<ListEditorProps> = ({ title, items, onUpdate, placeho
   );
 };
 
+interface SortableItemProps {
+  id: string;
+  title: string;
+}
+
+const SortableItem: React.FC<SortableItemProps> = ({ id, title }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="bg-white border border-slate-200 p-4 rounded-lg flex items-center gap-4 mb-2 shadow-sm touch-none select-none"
+    >
+      <div {...listeners} {...attributes} className="cursor-grab text-slate-400 hover:text-indigo-600 outline-none">
+        <GripVertical size={20} />
+      </div>
+      <span className="font-medium text-slate-700">{title}</span>
+    </div>
+  );
+};
+
 export const Settings: React.FC<SettingsProps> = ({
   settings,
   onUpdateSettings,
@@ -81,10 +132,52 @@ export const Settings: React.FC<SettingsProps> = ({
   onUpdateColumns,
   employees,
 }) => {
-  const [activeTab, setActiveTab] = useState<'rules' | 'columns' | 'data' | 'dropdowns'>('rules');
+  const [activeTab, setActiveTab] = useState<'rules' | 'columns' | 'data' | 'dropdowns' | 'layout'>('rules');
   const [newColLabel, setNewColLabel] = useState('');
   const [newColType, setNewColType] = useState<'text' | 'number' | 'date'>('text');
   const { showToast } = useToast();
+
+  const [widgetOrder, setWidgetOrder] = useState<string[]>([]);
+  const [isSavingLayout, setIsSavingLayout] = useState(false);
+
+  useEffect(() => {
+     if (settings.dashboardWidgetOrder && settings.dashboardWidgetOrder.length > 0) {
+         setWidgetOrder(settings.dashboardWidgetOrder);
+     } else {
+         setWidgetOrder(DEFAULT_SETTINGS.dashboardWidgetOrder || []);
+     }
+  }, [settings.dashboardWidgetOrder]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      setWidgetOrder((items) => {
+        const oldIndex = items.indexOf(active.id as string);
+        const newIndex = items.indexOf(over.id as string);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+  };
+
+  const handleSaveLayout = () => {
+      setIsSavingLayout(true);
+      try {
+          onUpdateSettings({ ...settings, dashboardWidgetOrder: widgetOrder });
+          showToast('Dashboard layout saved successfully', 'success');
+      } catch (e) {
+          showToast('Failed to save layout', 'error');
+      } finally {
+          setIsSavingLayout(false);
+      }
+  };
 
   const handleRuleChange = (key: keyof SystemSettings, value: any) => {
     onUpdateSettings({ ...settings, [key]: value });
@@ -209,6 +302,12 @@ export const Settings: React.FC<SettingsProps> = ({
             <SettingsIcon size={18} /> Rules & Config
           </button>
           <button
+            onClick={() => setActiveTab('layout')}
+            className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${activeTab === 'layout' ? 'bg-indigo-100 text-indigo-700' : 'text-slate-600 hover:bg-slate-100'}`}
+          >
+            <Layout size={18} /> Dashboard Layout
+          </button>
+          <button
             onClick={() => setActiveTab('dropdowns')}
             className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${activeTab === 'dropdowns' ? 'bg-indigo-100 text-indigo-700' : 'text-slate-600 hover:bg-slate-100'}`}
           >
@@ -276,6 +375,47 @@ export const Settings: React.FC<SettingsProps> = ({
               </div>
             </div>
           </div>
+        )}
+
+        {activeTab === 'layout' && (
+            <div className="max-w-2xl space-y-8">
+                <div className="flex items-start justify-between">
+                    <div>
+                        <h2 className="text-2xl font-bold text-slate-800 mb-2">Dashboard Layout</h2>
+                        <p className="text-slate-500">Drag and drop items to reorder the dashboard widgets.</p>
+                    </div>
+                </div>
+
+                <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
+                     <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={handleDragEnd}
+                      >
+                        <SortableContext
+                          items={widgetOrder}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          <div className="space-y-2">
+                             {widgetOrder.map((id) => (
+                               <SortableItem key={id} id={id} title={WIDGET_TITLES[id] || id} />
+                             ))}
+                          </div>
+                        </SortableContext>
+                      </DndContext>
+                </div>
+
+                <div className="flex justify-end pt-4 border-t border-slate-100">
+                    <button
+                        onClick={handleSaveLayout}
+                        disabled={isSavingLayout}
+                        className="bg-indigo-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                    >
+                        <Save size={18} />
+                        {isSavingLayout ? 'Saving...' : 'Save Layout'}
+                    </button>
+                </div>
+            </div>
         )}
 
         {activeTab === 'dropdowns' && (
