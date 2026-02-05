@@ -47,6 +47,11 @@ const SettingsSchema = z.object({
   showCountryStats: z.boolean(),
   showLanguageStats: z.boolean(),
   sickDaysByYear: z.record(z.array(MonthlySickDataSchema)),
+  dropdownOptions: z.object({
+    countries: z.array(z.string()),
+    languages: z.array(z.string()),
+  }).optional(),
+  dashboardWidgetOrder: z.array(z.string()).optional(),
 });
 
 const GlobalStateSchema = z.object({

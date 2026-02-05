@@ -63,6 +63,7 @@ export interface SystemSettings {
     countries: string[];
     languages: string[];
   };
+  dashboardWidgetOrder?: string[];
 }
 
 export interface Vacation {
@@ -117,6 +118,18 @@ export const DEFAULT_SETTINGS: SystemSettings = {
     ],
     languages: ['English', 'Spanish', 'French', 'German'],
   },
+  dashboardWidgetOrder: [
+    'workforce_status',
+    'main_stats',
+    'movement_chart',
+    'sick_days_trend',
+    'vr_distribution',
+    'tenure_distribution',
+    'age_demographics',
+    'gender_diversity',
+    'language_stats',
+    'country_stats',
+  ],
 };
 
 export const DEFAULT_COLUMNS: ColumnDefinition[] = [
