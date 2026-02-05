@@ -91,10 +91,10 @@ const App: React.FC = () => {
       <aside className="w-64 bg-white text-slate-600 flex flex-col shadow-xl z-10 hidden md:flex border-r border-slate-100">
         <div className="p-6 border-b border-slate-100">
           <div className="flex items-center gap-3 text-slate-800 font-bold text-xl tracking-tight">
-            <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-lg shadow-indigo-200 flex items-center justify-center text-white font-bold">HR</div>
+            <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-lg shadow-indigo-200 flex items-center justify-center text-white font-bold">MS</div>
             Manager System
           </div>
-          <p className="text-xs text-slate-500 mt-3 ml-1">HR Management System v2.0</p>
+          <p className="text-xs text-slate-500 mt-3 ml-1">Manager System v3.0</p>
         </div>
 
         <nav className="flex-1 p-4 space-y-2">
@@ -192,7 +192,7 @@ const App: React.FC = () => {
         {/* Mobile Header */}
         <div className="md:hidden bg-white text-slate-900 p-4 flex justify-between items-center sticky top-0 z-20 border-b border-slate-100 shadow-sm">
           <div className="font-bold flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg shadow-md flex items-center justify-center text-white text-xs font-bold">HR</div>
+            <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg shadow-md flex items-center justify-center text-white text-xs font-bold">MS</div>
             Manager System
           </div>
           <button onClick={() => setActiveTab(activeTab === 'dashboard' ? 'employees' : 'dashboard')}>
